@@ -445,7 +445,7 @@ var currentTheme = THEMES[0];
   }
 
   function savePhotoToDrive(dataUrl) {
-    if (statusMsg) statusMsg.textContent = 'Saving photo to Google Drive...';
+    if (statusMsg) statusMsg.textContent = 'Processing Photo...';
 
     var iframe = document.createElement('iframe');
     iframe.name = 'driveUploadFrame_' + Date.now();
