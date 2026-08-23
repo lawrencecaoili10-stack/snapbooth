@@ -1,128 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snapbooth</title>
-
-  <link
-    rel="stylesheet"
-    href="style.css"
-  >
-
+  <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
 
-  <main class="app">
+  <!-- Header Section -->
+  <header class="booth-header">
+    <h1>Snap<span>booth</span></h1>
+    <p class="tagline">Take fun photos with custom frames</p>
+  </header>
 
-    <!-- ======================================================
-         CAMERA
-         ====================================================== -->
-
-    <section class="camera-section">
-
-      <div class="camera-container">
-
-        <video
-          id="video"
-          autoplay
-          playsinline
-          muted
-        ></video>
-
-        <canvas
-          id="overlayCanvas"
-        ></canvas>
-
-        <div
-          id="countdown"
-          class="countdown hidden"
-        ></div>
-
-        <div
-          id="flash"
-          class="flash"
-        ></div>
-
+  <!-- Main App Layout -->
+  <main class="booth">
+    
+    <!-- Camera Viewport & Controls -->
+    <section class="stage">
+      <div class="stage__frame">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlayCanvas"></canvas>
+        <div id="countdown" class="countdown hidden"></div>
+        <div id="flash" class="flash"></div>
       </div>
 
+      <canvas id="captureCanvas" class="hidden"></canvas>
+      <div id="statusMsg" class="status"></div>
 
-      <canvas
-        id="captureCanvas"
-        class="hidden"
-      ></canvas>
-
-
-      <div
-        id="statusMsg"
-        class="status"
-      ></div>
-
-
-      <!-- ==================================================
-           CONTROLS
-           ================================================== -->
-
-      <div class="controls">
-
-        <button
-          id="captureBtn"
-          type="button"
-        >
-          TAKE PHOTO
-        </button>
-
-
-        <button
-          id="switchCamBtn"
-          type="button"
-        >
-          SWITCH CAMERA
-        </button>
-
-
-        <button
-          id="downloadBtn"
-          type="button"
-          class="hidden"
-        >
-          DOWNLOAD
-        </button>
-
+      <div class="stage__controls">
+        <button id="captureBtn" class="btn btn--primary" type="button">TAKE PHOTO</button>
+        <button id="switchCamBtn" class="btn btn--ghost" type="button">SWITCH CAMERA</button>
+        <button id="downloadBtn" class="btn btn--ghost hidden" type="button">DOWNLOAD</button>
       </div>
-
     </section>
 
-
-    <!-- ======================================================
-         THEMES
-         ====================================================== -->
-
-    <section class="themes">
-
-      <h2>Choose a Theme</h2>
-
-      <div
-        id="themeList"
-        class="theme-list"
-      ></div>
-
-    </section>
+    <!-- Theme Selection Sidebar -->
+    <aside class="rail">
+      <h2 class="rail__title">Choose a Theme</h2>
+      <div id="themeList" class="theme-list"></div>
+    </aside>
 
   </main>
 
-
   <script src="script.js"></script>
-
 </body>
-
 </html>
