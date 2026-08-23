@@ -1,1056 +1,339 @@
+// Frame Drawing Functions
+function drawClassicFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.05;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#ffffff';
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+}
+
+function drawNeonFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.04;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#ff2fd0';
+  ctx.shadowColor = '#ff2fd0';
+  ctx.shadowBlur = 15;
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+  ctx.shadowBlur = 0; // reset
+}
+
+function drawFloralFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.04;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#ffd6e8';
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+}
+
+function drawBirthdayFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.04;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#ffc857';
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+}
+
+function drawHolidayFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.04;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#0f5132';
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+}
+
+function drawFilmstripFrame(ctx, width, height) {
+  var borderSize = Math.min(width, height) * 0.06;
+  ctx.lineWidth = borderSize;
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.strokeRect(borderSize / 2, borderSize / 2, width - borderSize, height - borderSize);
+}
+
+var THEMES = [
+  { id: 'classic', name: 'Classic Polaroid', swatch: '#ffffff', draw: drawClassicFrame },
+  { id: 'neon', name: 'Neon Party', swatch: '#ff2fd0', draw: drawNeonFrame },
+  { id: 'floral', name: 'Garden Floral', swatch: '#ffd6e8', draw: drawFloralFrame },
+  { id: 'birthday', name: 'Birthday Bash', swatch: '#ffc857', draw: drawBirthdayFrame },
+  { id: 'holiday', name: 'Holiday Lights', swatch: '#0f5132', draw: drawHolidayFrame },
+  { id: 'filmstrip', name: 'Film Strip', swatch: '#1a1a1a', draw: drawFilmstripFrame }
+];
+
+var currentTheme = THEMES[0];
+
 (function () {
-
   'use strict';
-
-
-  // ============================================================
-  // GOOGLE APPS SCRIPT BACKEND
-  // ============================================================
 
   var APPS_SCRIPT_URL =
     'https://script.google.com/macros/s/AKfycbxrY8PAtR23fd_Sj--KUpcGmRbzUxLfwZUB1S0cMGN6ixhwOf-b8ng_qCBaZU6f8_E8hg/exec';
 
-
-  // ============================================================
-  // DOM REFERENCES
-  // ============================================================
-
-  var video =
-    document.getElementById('video');
-
-  var overlayCanvas =
-    document.getElementById('overlayCanvas');
-
-  var overlayCtx =
-    overlayCanvas.getContext('2d');
-
-  var captureCanvas =
-    document.getElementById('captureCanvas');
-
-  var countdownEl =
-    document.getElementById('countdown');
-
-  var flashEl =
-    document.getElementById('flash');
-
-  var statusMsg =
-    document.getElementById('statusMsg');
-
-  var captureBtn =
-    document.getElementById('captureBtn');
-
-  var downloadBtn =
-    document.getElementById('downloadBtn');
-
-  var switchCamBtn =
-    document.getElementById('switchCamBtn');
-
-  var themeListEl =
-    document.getElementById('themeList');
-
-
-  // ============================================================
-  // CAMERA STATE
-  // ============================================================
+  var video = document.getElementById('video');
+  var overlayCanvas = document.getElementById('overlayCanvas');
+  var overlayCtx = overlayCanvas.getContext('2d');
+  var captureCanvas = document.getElementById('captureCanvas');
+  var countdownEl = document.getElementById('countdown');
+  var flashEl = document.getElementById('flash');
+  var statusMsg = document.getElementById('statusMsg');
+  var captureBtn = document.getElementById('captureBtn');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var switchCamBtn = document.getElementById('switchCamBtn');
+  var themeListEl = document.getElementById('themeList');
 
   var currentStream = null;
-
   var currentDeviceId = null;
-
   var availableCameras = [];
-
   var currentCameraIndex = 0;
-
   var lastDownloadUrl = null;
 
+  function buildThemeRail() {
+    if (!themeListEl) return;
+    themeListEl.innerHTML = '';
 
-  // ============================================================
-  // CAMERA INITIALIZATION
-  // ============================================================
+    THEMES.forEach(function (theme) {
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'theme-card' + (theme.id === currentTheme.id ? ' active' : '');
+
+      var swatch = document.createElement('span');
+      swatch.className = 'theme-card__swatch';
+      swatch.style.backgroundColor = theme.swatch;
+
+      var label = document.createElement('span');
+      label.textContent = theme.name;
+
+      card.appendChild(swatch);
+      card.appendChild(label);
+
+      card.addEventListener('click', function () {
+        currentTheme = theme;
+        buildThemeRail();
+        renderOverlayPreview();
+      });
+
+      themeListEl.appendChild(card);
+    });
+  }
 
   function startCamera(deviceId) {
-
     stopCamera();
+    statusMsg.textContent = 'Requesting camera access...';
 
-
-    statusMsg.textContent =
-      'Requesting camera access...';
-
-
-    if (
-      !navigator.mediaDevices ||
-      !navigator.mediaDevices.getUserMedia
-    ) {
-
-      statusMsg.textContent =
-        'Camera access is not supported by this browser.';
-
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      statusMsg.textContent = 'Camera access is not supported by this browser.';
       return;
-
     }
 
-
-    var constraints;
-
-
-    /*
-     * If switching cameras, use the selected device.
-     */
-
-    if (deviceId) {
-
-      constraints = {
-
-        video: {
-
-          deviceId: {
-            exact: deviceId
-          }
-
-        },
-
-        audio: false
-
-      };
-
-    }
-
-
-    /*
-     * Initial camera request.
-     *
-     * IMPORTANT:
-     *
-     * We do NOT use facingMode here.
-     *
-     * This lets the browser choose the available webcam.
-     */
-
-    else {
-
-      constraints = {
-
-        video: true,
-
-        audio: false
-
-      };
-
-    }
-
+    var constraints = deviceId
+      ? { video: { deviceId: { exact: deviceId } }, audio: false }
+      : { video: true, audio: false };
 
     navigator.mediaDevices
-
       .getUserMedia(constraints)
-
       .then(function (stream) {
-
-        currentStream =
-          stream;
-
-
-        video.srcObject =
-          stream;
-
-
+        currentStream = stream;
+        video.srcObject = stream;
         return video.play();
-
       })
-
       .then(function () {
-
-        var tracks =
-          currentStream.getVideoTracks();
-
-
+        var tracks = currentStream.getVideoTracks();
         if (tracks.length > 0) {
-
-          var settings =
-            tracks[0].getSettings();
-
-
-          currentDeviceId =
-            settings.deviceId || null;
-
+          var settings = tracks[0].getSettings();
+          currentDeviceId = settings.deviceId || null;
         }
-
-
-        statusMsg.textContent =
-          '';
-
-
+        statusMsg.textContent = '';
         return getAvailableCameras();
-
       })
-
       .then(function (cameras) {
-
-        console.log(
-          'Available cameras:',
-          cameras
-        );
-
-
-        var index =
-          cameras.findIndex(
-            function (camera) {
-
-              return (
-                camera.deviceId ===
-                currentDeviceId
-              );
-
-            }
-          );
-
-
-        if (index !== -1) {
-
-          currentCameraIndex =
-            index;
-
-        }
-
-
-        /*
-         * Only show useful switch behavior
-         * when there are multiple cameras.
-         */
-
-        if (cameras.length > 1) {
-
-          switchCamBtn.disabled =
-            false;
-
-          switchCamBtn.style.display =
-            '';
-
-        }
-
-        else {
-
-          switchCamBtn.disabled =
-            true;
-
-          switchCamBtn.style.display =
-            'none';
-
-        }
-
-      })
-
-      .catch(function (err) {
-
-        console.error(
-          'Camera error:',
-          err
-        );
-
-
-        var message;
-
-
-        switch (err.name) {
-
-          case 'NotAllowedError':
-
-            message =
-              'Camera permission was denied. Please allow camera access in your browser settings and reload the page.';
-
-            break;
-
-
-          case 'NotFoundError':
-
-            message =
-              'No camera was found. Please connect a webcam or check your phone camera.';
-
-            break;
-
-
-          case 'NotReadableError':
-
-            message =
-              'The camera is already being used by another application.';
-
-            break;
-
-
-          case 'OverconstrainedError':
-
-            message =
-              'The selected camera is no longer available.';
-
-            break;
-
-
-          case 'SecurityError':
-
-            message =
-              'Camera access is blocked by the browser security policy.';
-
-            break;
-
-
-          default:
-
-            message =
-              err.message ||
-              'Unable to access camera.';
-
-        }
-
-
-        statusMsg.textContent =
-          'Camera error: ' +
-          message;
-
-      });
-
-  }
-
-
-  // ============================================================
-  // STOP CAMERA
-  // ============================================================
-
-  function stopCamera() {
-
-    if (currentStream) {
-
-      currentStream
-        .getTracks()
-        .forEach(function (track) {
-
-          track.stop();
-
+        var index = cameras.findIndex(function (camera) {
+          return camera.deviceId === currentDeviceId;
         });
 
+        if (index !== -1) currentCameraIndex = index;
 
-      currentStream =
-        null;
-
-    }
-
-
-    video.srcObject =
-      null;
-
+        if (cameras.length > 1) {
+          switchCamBtn.disabled = false;
+          switchCamBtn.style.display = '';
+        } else {
+          switchCamBtn.disabled = true;
+          switchCamBtn.style.display = 'none';
+        }
+      })
+      .catch(function (err) {
+        var message;
+        switch (err.name) {
+          case 'NotAllowedError':
+            message = 'Camera permission was denied. Please allow camera access in browser settings.';
+            break;
+          case 'NotFoundError':
+            message = 'No camera was found.';
+            break;
+          case 'NotReadableError':
+            message = 'Camera is already in use by another application.';
+            break;
+          default:
+            message = err.message || 'Unable to access camera.';
+        }
+        statusMsg.textContent = 'Camera error: ' + message;
+      });
   }
 
-
-  // ============================================================
-  // ENUMERATE CAMERAS
-  // ============================================================
+  function stopCamera() {
+    if (currentStream) {
+      currentStream.getTracks().forEach(function (track) {
+        track.stop();
+      });
+      currentStream = null;
+    }
+    video.srcObject = null;
+  }
 
   function getAvailableCameras() {
-
     return navigator.mediaDevices
       .enumerateDevices()
-
       .then(function (devices) {
-
-        availableCameras =
-          devices.filter(function (device) {
-
-            return (
-              device.kind ===
-              'videoinput'
-            );
-
-          });
-
-
-        console.log(
-          'Camera count:',
-          availableCameras.length
-        );
-
-
+        availableCameras = devices.filter(function (device) {
+          return device.kind === 'videoinput';
+        });
         return availableCameras;
-
       })
-
-      .catch(function (error) {
-
-        console.warn(
-          'Unable to enumerate cameras:',
-          error
-        );
-
-
-        availableCameras =
-          [];
-
-
+      .catch(function () {
+        availableCameras = [];
         return [];
-
       });
-
   }
 
-
-  // ============================================================
-  // SWITCH CAMERA
-  // ============================================================
-
-  switchCamBtn.addEventListener(
-    'click',
-    function () {
-
-      if (
-        !availableCameras ||
-        availableCameras.length < 2
-      ) {
-
-        statusMsg.textContent =
-          'Only one camera is connected.';
-
-        return;
-
-      }
-
-
-      var currentIndex =
-        availableCameras.findIndex(
-          function (camera) {
-
-            return (
-              camera.deviceId ===
-              currentDeviceId
-            );
-
-          }
-        );
-
-
-      if (currentIndex === -1) {
-
-        currentIndex =
-          currentCameraIndex;
-
-      }
-
-
-      var nextIndex =
-        (currentIndex + 1) %
-        availableCameras.length;
-
-
-      var nextCamera =
-        availableCameras[nextIndex];
-
-
-      if (
-        !nextCamera ||
-        !nextCamera.deviceId
-      ) {
-
-        return;
-
-      }
-
-
-      currentCameraIndex =
-        nextIndex;
-
-
-      startCamera(
-        nextCamera.deviceId
-      );
-
+  switchCamBtn.addEventListener('click', function () {
+    if (!availableCameras || availableCameras.length < 2) {
+      statusMsg.textContent = 'Only one camera is connected.';
+      return;
     }
-  );
+    var currentIndex = availableCameras.findIndex(function (camera) {
+      return camera.deviceId === currentDeviceId;
+    });
+    if (currentIndex === -1) currentIndex = currentCameraIndex;
 
+    var nextIndex = (currentIndex + 1) % availableCameras.length;
+    var nextCamera = availableCameras[nextIndex];
 
-  // ============================================================
-  // RESIZE OVERLAY
-  // ============================================================
+    if (nextCamera && nextCamera.deviceId) {
+      currentCameraIndex = nextIndex;
+      startCamera(nextCamera.deviceId);
+    }
+  });
 
   function resizeOverlayCanvas() {
-
-    var rect =
-      video.parentElement
-        .getBoundingClientRect();
-
-
-    overlayCanvas.width =
-      rect.width;
-
-    overlayCanvas.height =
-      rect.height;
-
-
+    var rect = video.parentElement.getBoundingClientRect();
+    overlayCanvas.width = rect.width;
+    overlayCanvas.height = rect.height;
     renderOverlayPreview();
-
   }
-
 
   function renderOverlayPreview() {
-
-    overlayCtx.clearRect(
-      0,
-      0,
-      overlayCanvas.width,
-      overlayCanvas.height
-    );
-
-
-    currentTheme.draw(
-      overlayCtx,
-      overlayCanvas.width,
-      overlayCanvas.height
-    );
-
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    currentTheme.draw(overlayCtx, overlayCanvas.width, overlayCanvas.height);
   }
 
+  window.addEventListener('resize', resizeOverlayCanvas);
 
-  window.addEventListener(
-    'resize',
-    resizeOverlayCanvas
-  );
-
-
-  // ============================================================
-  // TAKE PHOTO
-  // ============================================================
-
-  captureBtn.addEventListener(
-    'click',
-    function () {
-
-      if (!currentStream) {
-
-        statusMsg.textContent =
-          'Camera is not ready yet.';
-
-        return;
-
-      }
-
-
-      captureBtn.disabled =
-        true;
-
-
-      runCountdown(
-        3,
-        function () {
-
-          takePhoto();
-
-          captureBtn.disabled =
-            false;
-
-        }
-      );
-
+  captureBtn.addEventListener('click', function () {
+    if (!currentStream) {
+      statusMsg.textContent = 'Camera is not ready yet.';
+      return;
     }
-  );
+    captureBtn.disabled = true;
+    runCountdown(3, function () {
+      takePhoto();
+      captureBtn.disabled = false;
+    });
+  });
 
+  function runCountdown(n, onDone) {
+    countdownEl.classList.remove('hidden');
+    countdownEl.textContent = n;
 
-  // ============================================================
-  // COUNTDOWN
-  // ============================================================
-
-  function runCountdown(
-    n,
-    onDone
-  ) {
-
-    countdownEl.classList
-      .remove('hidden');
-
-
-    countdownEl.textContent =
-      n;
-
-
-    var timer =
-      setInterval(function () {
-
-        n -= 1;
-
-
-        if (n <= 0) {
-
-          clearInterval(timer);
-
-
-          countdownEl.classList
-            .add('hidden');
-
-
-          onDone();
-
-        }
-
-        else {
-
-          countdownEl.textContent =
-            n;
-
-        }
-
-      }, 800);
-
+    var timer = setInterval(function () {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(timer);
+        countdownEl.classList.add('hidden');
+        onDone();
+      } else {
+        countdownEl.textContent = n;
+      }
+    }, 800);
   }
-
-
-  // ============================================================
-  // TAKE PHOTO
-  // ============================================================
 
   function takePhoto() {
+    var vw = video.videoWidth || 1280;
+    var vh = video.videoHeight || 960;
 
-    var vw =
-      video.videoWidth ||
-      1280;
+    captureCanvas.width = vw;
+    captureCanvas.height = vh;
+    var ctx = captureCanvas.getContext('2d');
 
+    ctx.drawImage(video, 0, 0, vw, vh);
+    currentTheme.draw(ctx, vw, vh);
 
-    var vh =
-      video.videoHeight ||
-      960;
-
-
-    captureCanvas.width =
-      vw;
-
-
-    captureCanvas.height =
-      vh;
-
-
-    var ctx =
-      captureCanvas
-        .getContext('2d');
-
-
-    /*
-     * Determine whether this is the
-     * front-facing camera.
-     *
-     * For the external webcam we simply
-     * draw normally.
-     */
-
-    var shouldMirror =
-      false;
-
-
-    /*
-     * If you want ALL cameras mirrored,
-     * change this to:
-     *
-     * var shouldMirror = true;
-     */
-
-
-    if (shouldMirror) {
-
-      ctx.save();
-
-
-      ctx.translate(
-        vw,
-        0
-      );
-
-
-      ctx.scale(
-        -1,
-        1
-      );
-
-
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        vw,
-        vh
-      );
-
-
-      ctx.restore();
-
-    }
-
-    else {
-
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        vw,
-        vh
-      );
-
-    }
-
-
-    /*
-     * Draw selected frame.
-     */
-
-    currentTheme.draw(
-      ctx,
-      vw,
-      vh
-    );
-
-
-    /*
-     * Flash.
-     */
-
-    flashEl.classList
-      .remove('on');
-
-
+    flashEl.classList.remove('on');
     void flashEl.offsetWidth;
+    flashEl.classList.add('on');
 
+    var dataUrl = captureCanvas.toDataURL('image/png');
+    lastDownloadUrl = dataUrl;
+    downloadBtn.classList.remove('hidden');
 
-    flashEl.classList
-      .add('on');
-
-
-    /*
-     * Convert to PNG.
-     */
-
-    var dataUrl =
-      captureCanvas.toDataURL(
-        'image/png'
-      );
-
-
-    /*
-     * Local download.
-     */
-
-    lastDownloadUrl =
-      dataUrl;
-
-
-    downloadBtn.classList
-      .remove('hidden');
-
-
-    /*
-     * Google Drive.
-     */
-
-    savePhotoToDrive(
-      dataUrl
-    );
-
+    savePhotoToDrive(dataUrl);
   }
 
-
-  // ============================================================
-  // DOWNLOAD
-  // ============================================================
-
-  downloadBtn.addEventListener(
-    'click',
-    function () {
-
-      if (!lastDownloadUrl) {
-
-        return;
-
-      }
-
-
-      var a =
-        document.createElement('a');
-
-
-      a.href =
-        lastDownloadUrl;
-
-
-      a.download =
-        'snapbooth_' +
-        currentTheme.id +
-        '_' +
-        Date.now() +
-        '.png';
-
-
-      document.body.appendChild(a);
-
-
-      a.click();
-
-
-      document.body.removeChild(a);
-
-    }
-  );
-
-
-  // ============================================================
-  // SAVE TO GOOGLE DRIVE
-  // ============================================================
-
-  function savePhotoToDrive(
-    dataUrl
-  ) {
-
-    statusMsg.textContent =
-      'Saving photo to Google Drive...';
-
-
-    /*
-     * IMPORTANT:
-     *
-     * We use a hidden form instead of fetch().
-     *
-     * This avoids CORS problems between
-     * GitHub Pages and Apps Script.
-     */
-
-    var iframe =
-      document.createElement('iframe');
-
-
-    iframe.name =
-      'driveUploadFrame_' +
-      Date.now();
-
-
-    iframe.style.display =
-      'none';
-
-
-    document.body.appendChild(
-      iframe
-    );
-
-
-    var form =
-      document.createElement('form');
-
-
-    form.method =
-      'POST';
-
-
-    form.action =
-      APPS_SCRIPT_URL;
-
-
-    form.target =
-      iframe.name;
-
-
-    form.style.display =
-      'none';
-
-
-    /*
-     * Photo.
-     */
-
-    var photoInput =
-      document.createElement('input');
-
-
-    photoInput.type =
-      'hidden';
-
-
-    photoInput.name =
-      'photo';
-
-
-    photoInput.value =
-      dataUrl;
-
-
-    form.appendChild(
-      photoInput
-    );
-
-
-    /*
-     * Theme.
-     */
-
-    var themeInput =
-      document.createElement('input');
-
-
-    themeInput.type =
-      'hidden';
-
-
-    themeInput.name =
-      'theme';
-
-
-    themeInput.value =
-      currentTheme.id;
-
-
-    form.appendChild(
-      themeInput
-    );
-
-
-    /*
-     * Filename.
-     */
-
-    var filenameInput =
-      document.createElement('input');
-
-
-    filenameInput.type =
-      'hidden';
-
-
-    filenameInput.name =
-      'filename';
-
-
-    filenameInput.value =
-      'snapbooth_' +
-      currentTheme.id +
-      '_' +
-      Date.now() +
-      '.png';
-
-
-    form.appendChild(
-      filenameInput
-    );
-
-
-    document.body.appendChild(
-      form
-    );
-
-
-    /*
-     * Submit.
-     */
-
+  downloadBtn.addEventListener('click', function () {
+    if (!lastDownloadUrl) return;
+    var a = document.createElement('a');
+    a.href = lastDownloadUrl;
+    a.download = 'snapbooth_' + currentTheme.id + '_' + Date.now() + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  function savePhotoToDrive(dataUrl) {
+    statusMsg.textContent = 'Saving photo to Google Drive...';
+
+    var iframe = document.createElement('iframe');
+    iframe.name = 'driveUploadFrame_' + Date.now();
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = APPS_SCRIPT_URL;
+    form.target = iframe.name;
+    form.style.display = 'none';
+
+    var photoInput = document.createElement('input');
+    photoInput.type = 'hidden';
+    photoInput.name = 'photo';
+    photoInput.value = dataUrl;
+    form.appendChild(photoInput);
+
+    var themeInput = document.createElement('input');
+    themeInput.type = 'hidden';
+    themeInput.name = 'theme';
+    themeInput.value = currentTheme.id;
+    form.appendChild(themeInput);
+
+    var filenameInput = document.createElement('input');
+    filenameInput.type = 'hidden';
+    filenameInput.name = 'filename';
+    filenameInput.value = 'snapbooth_' + currentTheme.id + '_' + Date.now() + '.png';
+    form.appendChild(filenameInput);
+
+    document.body.appendChild(form);
     form.submit();
 
-
-    /*
-     * We cannot directly read the Apps Script
-     * response because it is cross-origin.
-     *
-     * Give Apps Script time to save the file,
-     * then display success.
-     */
-
-    setTimeout(
-      function () {
-
-        statusMsg.textContent =
-          'Photo saved successfully!';
-
-
-        /*
-         * Cleanup.
-         */
-
-        if (form.parentNode) {
-
-          form.parentNode
-            .removeChild(form);
-
-        }
-
-
-        if (iframe.parentNode) {
-
-          iframe.parentNode
-            .removeChild(iframe);
-
-        }
-
-      },
-      2500
-    );
-
+    setTimeout(function () {
+      statusMsg.textContent = 'Photo saved successfully!';
+      if (form.parentNode) form.parentNode.removeChild(form);
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 2500);
   }
-
-
-  // ============================================================
-  // INITIALIZATION
-  // ============================================================
 
   buildThemeRail();
-
-
   startCamera();
 
-
-  video.addEventListener(
-    'loadedmetadata',
-    function () {
-
-      resizeOverlayCanvas();
-
-    }
-  );
-
-
-  window.addEventListener(
-    'load',
-    function () {
-
-      resizeOverlayCanvas();
-
-    }
-  );
-
-
+  video.addEventListener('loadedmetadata', resizeOverlayCanvas);
+  window.addEventListener('load', resizeOverlayCanvas);
 })();
-
-var THEMES = [
-  {
-    id: 'classic',
-    name: 'Classic Polaroid',
-    swatch: '#ffffff',
-    draw: drawClassicFrame
-  },
-  {
-    id: 'neon',
-    name: 'Neon Party',
-    swatch: '#ff2fd0',
-    draw: drawNeonFrame
-  },
-  {
-    id: 'floral',
-    name: 'Garden Floral',
-    swatch: '#ffd6e8',
-    draw: drawFloralFrame
-  },
-  {
-    id: 'birthday',
-    name: 'Birthday Bash',
-    swatch: '#ffc857',
-    draw: drawBirthdayFrame
-  },
-  {
-    id: 'holiday',
-    name: 'Holiday Lights',
-    swatch: '#0f5132',
-    draw: drawHolidayFrame
-  },
-  {
-    id: 'filmstrip',
-    name: 'Film Strip',
-    swatch: '#1a1a1a',
-    draw: drawFilmstripFrame
-  }
-];
-
-var currentTheme = THEMES[0];
