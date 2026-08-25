@@ -1,6 +1,13 @@
-<script>
 (function () {
   'use strict';
+
+  // ============================================================
+  // BACKEND ENDPOINT
+  // ============================================================
+  // Paste the /exec URL of your deployed Apps Script Web App here.
+  // Deploy > Manage deployments > Web app > copy the URL ending in /exec
+
+  var APPS_SCRIPT_URL = 'PASTE_YOUR_WEB_APP_EXEC_URL_HERE';
 
   // ============================================================
   // DOM REFERENCES
@@ -42,36 +49,48 @@
       id: 'classic',
       name: 'Classic Polaroid',
       swatch: '#ffffff',
+      // warm, slightly faded instant-film look
+      filter: 'sepia(12%) saturate(115%) contrast(104%) brightness(102%)',
       draw: drawClassicFrame
     },
     {
       id: 'neon',
       name: 'Neon Party',
       swatch: '#ff2fd0',
+      // punchy, oversaturated club-light look
+      filter: 'saturate(165%) contrast(115%) brightness(103%) hue-rotate(-4deg)',
       draw: drawNeonFrame
     },
     {
       id: 'floral',
       name: 'Garden Floral',
       swatch: '#ffd6e8',
+      // soft pastel, lifted shadows, gentle warmth
+      filter: 'sepia(8%) saturate(112%) brightness(108%) contrast(96%)',
       draw: drawFloralFrame
     },
     {
       id: 'birthday',
       name: 'Birthday Bash',
       swatch: '#ffc857',
+      // bright, vivid, high-energy party colors
+      filter: 'saturate(148%) contrast(110%) brightness(106%)',
       draw: drawBirthdayFrame
     },
     {
       id: 'holiday',
       name: 'Holiday Lights',
       swatch: '#0f5132',
+      // cozy warm glow, slightly muted highlights
+      filter: 'sepia(18%) saturate(120%) brightness(101%) contrast(103%)',
       draw: drawHolidayFrame
     },
     {
       id: 'filmstrip',
       name: 'Film Strip',
       swatch: '#1a1a1a',
+      // classic high-contrast black & white
+      filter: 'grayscale(100%) contrast(120%) brightness(103%)',
       draw: drawFilmstripFrame
     }
   ];
@@ -126,6 +145,8 @@
 
           card.classList.add('active');
 
+          applyLiveFilter(theme);
+
           renderOverlayPreview();
         }
       );
@@ -133,6 +154,21 @@
       themeListEl.appendChild(card);
 
     });
+
+  }
+
+
+  // ============================================================
+  // LIVE PREVIEW FILTER
+  // ============================================================
+  // Applies the theme's color-grade filter to the <video> element
+  // so what you see in the preview matches what gets captured.
+
+  function applyLiveFilter(theme) {
+
+    video.style.filter =
+      (theme && theme.filter) ||
+      'none';
 
   }
 
@@ -648,6 +684,17 @@
 
 
     // ========================================================
+    // APPLY THEME COLOR FILTER
+    // ========================================================
+    // Canvas 2D context supports the same CSS filter syntax,
+    // so the baked-in photo matches the live preview exactly.
+
+    ctx.filter =
+      (currentTheme && currentTheme.filter) ||
+      'none';
+
+
+    // ========================================================
     // MIRROR FRONT CAMERA
     // ========================================================
 
@@ -692,6 +739,13 @@
       );
 
     }
+
+
+    // Reset the filter before drawing the frame overlay —
+    // the decorative border/stickers should stay crisp and
+    // unaffected by the photo's color grade.
+
+    ctx.filter = 'none';
 
 
     // ========================================================
@@ -1054,9 +1108,78 @@
       'Saving photo...';
 
 
-    google.script.run
+    if (
+      !APPS_SCRIPT_URL ||
+      APPS_SCRIPT_URL.indexOf('PASTE_YOUR') === 0
+    ) {
 
-      .withSuccessHandler(
+      statusMsg.textContent =
+        'Save skipped: set APPS_SCRIPT_URL at the top of script.js to your deployed Web App /exec URL.';
+
+      return;
+
+    }
+
+
+    var filename =
+      'snapbooth_' +
+      currentTheme.id +
+      '_' +
+      Date.now() +
+      '.png';
+
+
+    var body =
+      new URLSearchParams();
+
+
+    body.append(
+      'photo',
+      dataUrl
+    );
+
+
+    body.append(
+      'theme',
+      currentTheme.id
+    );
+
+
+    body.append(
+      'filename',
+      filename
+    );
+
+
+    // A form-encoded body is a "simple request" so no CORS preflight
+    // is triggered, which keeps this working against Apps Script.
+
+    fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: 'POST',
+        body: body
+      }
+    )
+
+      .then(
+        function (response) {
+
+          if (!response.ok) {
+
+            throw new Error(
+              'Server responded with ' +
+              response.status
+            );
+
+          }
+
+          return response.json();
+
+        }
+      )
+
+      .then(
         function (result) {
 
           if (
@@ -1085,7 +1208,7 @@
         }
       )
 
-      .withFailureHandler(
+      .catch(
         function (err) {
 
           statusMsg.textContent =
@@ -1094,15 +1217,10 @@
               err &&
               err.message
                 ? err.message
-                : 'Server error'
+                : 'Network error'
             );
 
         }
-      )
-
-      .savePhoto(
-        dataUrl,
-        currentTheme.id
       );
 
   }
@@ -2423,6 +2541,8 @@
 
   buildThemeRail();
 
+  applyLiveFilter(currentTheme);
+
 
   // Start with any available camera.
   startCamera(null);
@@ -2441,4 +2561,3 @@
 
 
 })();
-</script>
