@@ -36,13 +36,24 @@
       </div>
     </section>
 
-    <!-- Theme Selection Sidebar -->
+    <!-- Theme & Layout Selection Sidebar -->
     <aside class="rail">
-      <h2 class="rail__title">Choose a Theme</h2>
+      <h2 class="rail__title">Choose a Layout</h2>
+      <div id="layoutList" class="layout-list"></div>
+
+      <h2 class="rail__title rail__title--spaced">Choose a Theme</h2>
       <div id="themeList" class="theme-list"></div>
     </aside>
 
   </main>
+
+  <!-- Photos taken this session -->
+  <section class="session-gallery">
+    <h2 class="session-gallery__title">Your Photos</h2>
+    <div id="sessionGalleryStrip" class="session-gallery__strip">
+      <p class="session-gallery__empty">Photos you take this session will show up here — tap one to open or save it again.</p>
+    </div>
+  </section>
 
   <script src="script.js"></script>
 </body>
