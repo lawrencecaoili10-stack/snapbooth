@@ -1,208 +1,14 @@
-// ============================================================
-// 1. HELPER DRAWING FUNCTIONS
-// ============================================================
-
-function mulberry32(a) {
-  return function() {
-    var t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function roundRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-function drawTape(ctx, x, y, width, height, angle) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle * Math.PI / 180);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-  ctx.fillRect(-width / 2, -height / 2, width, height);
-  ctx.restore();
-}
-
-function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, color) {
-  var rot = Math.PI / 2 * 3;
-  var x = cx;
-  var y = cy;
-  var step = Math.PI / spikes;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - outerRadius);
-  for (var i = 0; i < spikes; i++) {
-    x = cx + Math.cos(rot) * outerRadius;
-    y = cy + Math.sin(rot) * outerRadius;
-    ctx.lineTo(x, y);
-    rot += step;
-
-    x = cx + Math.cos(rot) * innerRadius;
-    y = cy + Math.sin(rot) * innerRadius;
-    ctx.lineTo(x, y);
-    rot += step;
-  }
-  ctx.lineTo(cx, cy - outerRadius);
-  ctx.closePath();
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawFlower(ctx, x, y, size) {
-  ctx.save();
-  ctx.fillStyle = '#ffb7c5';
-  for (var i = 0; i < 5; i++) {
-    var angle = (i * 72) * Math.PI / 180;
-    var px = x + Math.cos(angle) * (size * 0.6);
-    var py = y + Math.sin(angle) * (size * 0.6);
-    ctx.beginPath();
-    ctx.arc(px, py, size * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.beginPath();
-  ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffdb58';
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawBalloon(ctx, x, y, size, color) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(x, y, size * 0.6, size * 0.8, 0, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x, y + size * 0.8);
-  ctx.lineTo(x, y + size * 1.8);
-  ctx.strokeStyle = '#888';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawSnowflake(ctx, x, y, size) {
-  ctx.save();
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  for (var i = 0; i < 6; i++) {
-    var angle = (i * 60) * Math.PI / 180;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-// ============================================================
-// 2. THEME DRAWING FUNCTIONS
-// ============================================================
-
-function drawClassicFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.05;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#ffffff';
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  drawTape(ctx, w * 0.2, pad, 60, 20, -10);
-  drawTape(ctx, w * 0.8, pad, 60, 20, 10);
-}
-
-function drawNeonFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.04;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#ff2fd0';
-  ctx.shadowColor = '#ff2fd0';
-  ctx.shadowBlur = 15;
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  ctx.shadowBlur = 0;
-}
-
-function drawFloralFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.04;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#ffd6e8';
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  drawFlower(ctx, pad * 2, pad * 2, 20);
-  drawFlower(ctx, w - pad * 2, pad * 2, 20);
-  drawFlower(ctx, pad * 2, h - pad * 2, 20);
-  drawFlower(ctx, w - pad * 2, h - pad * 2, 20);
-}
-
-function drawBirthdayFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.04;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#ffc857';
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  drawBalloon(ctx, pad * 2, pad * 3, 25, '#ff6b57');
-  drawBalloon(ctx, w - pad * 2, pad * 3, 25, '#06a77d');
-  drawStar(ctx, w / 2, pad * 2, 5, 15, 7, '#ff6b57');
-}
-
-function drawHolidayFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.04;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#0f5132';
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  drawSnowflake(ctx, pad * 2, pad * 2, 15);
-  drawSnowflake(ctx, w - pad * 2, pad * 2, 15);
-  drawSnowflake(ctx, pad * 2, h - pad * 2, 15);
-  drawSnowflake(ctx, w - pad * 2, h - pad * 2, 15);
-}
-
-function drawFilmstripFrame(ctx, w, h) {
-  var pad = Math.min(w, h) * 0.06;
-  ctx.lineWidth = pad;
-  ctx.strokeStyle = '#1a1a1a';
-  ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
-  ctx.fillStyle = '#ffffff';
-  for (var y = pad; y < h - pad; y += 30) {
-    ctx.fillRect(5, y, 10, 15);
-    ctx.fillRect(w - 15, y, 10, 15);
-  }
-}
-
-// ============================================================
-// 3. THEME CONFIGURATION
-// ============================================================
-
-var THEMES = [
-  { id: 'classic', name: 'Classic Polaroid', swatch: '#ffffff', draw: drawClassicFrame },
-  { id: 'neon', name: 'Neon Party', swatch: '#ff2fd0', draw: drawNeonFrame },
-  { id: 'floral', name: 'Garden Floral', swatch: '#ffd6e8', draw: drawFloralFrame },
-  { id: 'birthday', name: 'Birthday Bash', swatch: '#ffc857', draw: drawBirthdayFrame },
-  { id: 'holiday', name: 'Holiday Lights', swatch: '#0f5132', draw: drawHolidayFrame },
-  { id: 'filmstrip', name: 'Film Strip', swatch: '#1a1a1a', draw: drawFilmstripFrame }
-];
-
-var currentTheme = THEMES[0];
-
-// ============================================================
-// 4. MAIN APP CONTROLLER
-// ============================================================
-
+<script>
 (function () {
   'use strict';
 
-  var APPS_SCRIPT_URL =
-    'https://script.google.com/macros/s/AKfycbxrY8PAtR23fd_Sj--KUpcGmRbzUxLfwZUB1S0cMGN6ixhwOf-b8ng_qCBaZU6f8_E8hg/exec';
+  // ============================================================
+  // DOM REFERENCES
+  // ============================================================
 
   var video = document.getElementById('video');
   var overlayCanvas = document.getElementById('overlayCanvas');
-  var overlayCtx = overlayCanvas ? overlayCanvas.getContext('2d') : null;
+  var overlayCtx = overlayCanvas.getContext('2d');
   var captureCanvas = document.getElementById('captureCanvas');
   var countdownEl = document.getElementById('countdown');
   var flashEl = document.getElementById('flash');
@@ -212,287 +18,2427 @@ var currentTheme = THEMES[0];
   var switchCamBtn = document.getElementById('switchCamBtn');
   var themeListEl = document.getElementById('themeList');
 
+
+  // ============================================================
+  // CAMERA STATE
+  // ============================================================
+
   var currentStream = null;
   var currentDeviceId = null;
   var availableCameras = [];
   var currentCameraIndex = 0;
+  var facingMode = 'user';
+
+  // Stores the latest captured image as a data URL.
   var lastDownloadUrl = null;
 
+
+  // ============================================================
+  // THEMES
+  // ============================================================
+
+  var THEMES = [
+    {
+      id: 'classic',
+      name: 'Classic Polaroid',
+      swatch: '#ffffff',
+      draw: drawClassicFrame
+    },
+    {
+      id: 'neon',
+      name: 'Neon Party',
+      swatch: '#ff2fd0',
+      draw: drawNeonFrame
+    },
+    {
+      id: 'floral',
+      name: 'Garden Floral',
+      swatch: '#ffd6e8',
+      draw: drawFloralFrame
+    },
+    {
+      id: 'birthday',
+      name: 'Birthday Bash',
+      swatch: '#ffc857',
+      draw: drawBirthdayFrame
+    },
+    {
+      id: 'holiday',
+      name: 'Holiday Lights',
+      swatch: '#0f5132',
+      draw: drawHolidayFrame
+    },
+    {
+      id: 'filmstrip',
+      name: 'Film Strip',
+      swatch: '#1a1a1a',
+      draw: drawFilmstripFrame
+    }
+  ];
+
+  var currentTheme = THEMES[0];
+
+
+  // ============================================================
+  // THEME RAIL
+  // ============================================================
+
   function buildThemeRail() {
-    if (!themeListEl) return;
+
     themeListEl.innerHTML = '';
 
     THEMES.forEach(function (theme) {
-      var card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'theme-card' + (theme.id === currentTheme.id ? ' active' : '');
 
-      var swatch = document.createElement('span');
-      swatch.className = 'theme-card__swatch';
-      swatch.style.backgroundColor = theme.swatch;
+      var card =
+        document.createElement('button');
 
-      var label = document.createElement('span');
-      label.textContent = theme.name;
+      card.className =
+        'theme-card' +
+        (theme.id === currentTheme.id
+          ? ' active'
+          : '');
 
-      card.appendChild(swatch);
-      card.appendChild(label);
+      card.setAttribute(
+        'data-theme',
+        theme.id
+      );
 
-      card.addEventListener('click', function () {
-        currentTheme = theme;
-        buildThemeRail();
-        renderOverlayPreview();
-      });
+      card.innerHTML =
+        '<span class="theme-card__swatch" style="background:' +
+        theme.swatch +
+        '"></span>' +
+        '<span>' +
+        theme.name +
+        '</span>';
+
+      card.addEventListener(
+        'click',
+        function () {
+
+          currentTheme = theme;
+
+          Array.prototype.forEach.call(
+            themeListEl.children,
+            function (c) {
+              c.classList.remove('active');
+            }
+          );
+
+          card.classList.add('active');
+
+          renderOverlayPreview();
+        }
+      );
 
       themeListEl.appendChild(card);
+
     });
+
   }
 
-  function startCamera(deviceId) {
-    stopCamera();
-    if (statusMsg) statusMsg.textContent = 'Requesting camera access...';
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (statusMsg) statusMsg.textContent = 'Camera access is not supported by this browser.';
-      return;
+  // ============================================================
+  // CAMERA
+  // ============================================================
+
+  function stopCamera() {
+
+    if (currentStream) {
+
+      currentStream
+        .getTracks()
+        .forEach(function (track) {
+          track.stop();
+        });
+
+      currentStream = null;
     }
 
-    var constraints = deviceId
-      ? { video: { deviceId: { exact: deviceId } }, audio: false }
-      : { video: true, audio: false };
+    video.srcObject = null;
+  }
+
+
+  function getAvailableCameras() {
+
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.enumerateDevices
+    ) {
+
+      return Promise.resolve([]);
+
+    }
+
+    return navigator.mediaDevices
+      .enumerateDevices()
+
+      .then(function (devices) {
+
+        availableCameras =
+          devices.filter(function (device) {
+
+            return (
+              device.kind ===
+              'videoinput'
+            );
+
+          });
+
+        return availableCameras;
+
+      })
+
+      .catch(function (err) {
+
+        console.warn(
+          'Unable to enumerate cameras:',
+          err
+        );
+
+        return [];
+
+      });
+
+  }
+
+
+  function startCamera(deviceId) {
+
+    stopCamera();
+
+    statusMsg.textContent =
+      'Requesting camera access...';
+
+
+    var constraints;
+
+
+    // ========================================================
+    // SPECIFIC CAMERA
+    // ========================================================
+
+    if (deviceId) {
+
+      constraints = {
+
+        video: {
+
+          deviceId: {
+            exact: deviceId
+          }
+
+        },
+
+        audio: false
+
+      };
+
+    }
+
+
+    // ========================================================
+    // INITIAL CAMERA
+    // ========================================================
+
+    else {
+
+      constraints = {
+
+        video: {
+          facingMode: {
+            ideal: facingMode
+          }
+        },
+
+        audio: false
+
+      };
+
+    }
+
 
     navigator.mediaDevices
       .getUserMedia(constraints)
+
       .then(function (stream) {
-        currentStream = stream;
-        video.srcObject = stream;
-        return video.play();
-      })
-      .then(function () {
-        var tracks = currentStream.getVideoTracks();
+
+        currentStream =
+          stream;
+
+        video.srcObject =
+          stream;
+
+
+        var tracks =
+          stream.getVideoTracks();
+
+
         if (tracks.length > 0) {
-          var settings = tracks[0].getSettings();
-          currentDeviceId = settings.deviceId || null;
-        }
-        if (statusMsg) statusMsg.textContent = '';
-        return getAvailableCameras();
-      })
-      .then(function (cameras) {
-        var index = cameras.findIndex(function (camera) {
-          return camera.deviceId === currentDeviceId;
-        });
 
-        if (index !== -1) currentCameraIndex = index;
+          var settings =
+            tracks[0].getSettings();
 
-        if (switchCamBtn) {
-          if (cameras.length > 1) {
-            switchCamBtn.disabled = false;
-            switchCamBtn.style.display = '';
-          } else {
-            switchCamBtn.disabled = true;
-            switchCamBtn.style.display = 'none';
+
+          if (settings.deviceId) {
+
+            currentDeviceId =
+              settings.deviceId;
+
           }
+
         }
+
+
+        statusMsg.textContent =
+          '';
+
+
+        return getAvailableCameras();
+
       })
+
       .catch(function (err) {
-        var message;
-        switch (err.name) {
-          case 'NotAllowedError':
-            message = 'Camera permission was denied. Please allow camera access in browser settings.';
-            break;
-          case 'NotFoundError':
-            message = 'No camera was found.';
-            break;
-          case 'NotReadableError':
-            message = 'Camera is already in use by another application.';
-            break;
-          default:
-            message = err.message || 'Unable to access camera.';
-        }
-        if (statusMsg) statusMsg.textContent = 'Camera error: ' + message;
-      });
-  }
 
-  function stopCamera() {
-    if (currentStream) {
-      currentStream.getTracks().forEach(function (track) {
-        track.stop();
-      });
-      currentStream = null;
-    }
-    if (video) video.srcObject = null;
-  }
+        console.warn(
+          'Preferred camera request failed:',
+          err
+        );
 
-  function getAvailableCameras() {
-    return navigator.mediaDevices
-      .enumerateDevices()
-      .then(function (devices) {
-        availableCameras = devices.filter(function (device) {
-          return device.kind === 'videoinput';
-        });
-        return availableCameras;
+
+        // ====================================================
+        // FALLBACK CAMERA
+        // ====================================================
+
+        return navigator.mediaDevices
+          .getUserMedia({
+
+            video: true,
+            audio: false
+
+          });
+
       })
-      .catch(function () {
-        availableCameras = [];
-        return [];
+
+      .then(function (stream) {
+
+        /*
+         * If the first request succeeded,
+         * this will be undefined.
+         */
+
+        if (!stream) {
+          return;
+        }
+
+
+        currentStream =
+          stream;
+
+        video.srcObject =
+          stream;
+
+
+        var tracks =
+          stream.getVideoTracks();
+
+
+        if (tracks.length > 0) {
+
+          var settings =
+            tracks[0].getSettings();
+
+
+          if (settings.deviceId) {
+
+            currentDeviceId =
+              settings.deviceId;
+
+          }
+
+        }
+
+
+        statusMsg.textContent =
+          '';
+
+
+        return getAvailableCameras();
+
+      })
+
+      .catch(function (err) {
+
+        console.error(
+          'Camera error:',
+          err
+        );
+
+
+        var message =
+          err.message ||
+          'Unable to access camera';
+
+
+        if (
+          err.name ===
+          'NotAllowedError'
+        ) {
+
+          message =
+            'Permission denied. Please allow camera access in your browser settings and reload the page.';
+
+        }
+
+        else if (
+          err.name ===
+          'NotFoundError'
+        ) {
+
+          message =
+            'No camera was found. Please make sure your webcam or phone camera is available.';
+
+        }
+
+        else if (
+          err.name ===
+          'NotReadableError'
+        ) {
+
+          message =
+            'The camera is already being used by another application.';
+
+        }
+
+        else if (
+          err.name ===
+          'SecurityError'
+        ) {
+
+          message =
+            'Camera access is blocked by the browser security policy.';
+
+        }
+
+
+        statusMsg.textContent =
+          'Camera error: ' +
+          message;
+
       });
+
   }
 
-  if (switchCamBtn) {
-    switchCamBtn.addEventListener('click', function () {
-      if (!availableCameras || availableCameras.length < 2) {
-        if (statusMsg) statusMsg.textContent = 'Only one camera is connected.';
+
+  // ============================================================
+  // SWITCH CAMERA
+  // ============================================================
+
+  switchCamBtn.addEventListener(
+    'click',
+    function () {
+
+      if (
+        !availableCameras ||
+        availableCameras.length <= 1
+      ) {
+
+        statusMsg.textContent =
+          'No other camera detected.';
+
         return;
       }
-      var currentIndex = availableCameras.findIndex(function (camera) {
-        return camera.deviceId === currentDeviceId;
-      });
-      if (currentIndex === -1) currentIndex = currentCameraIndex;
 
-      var nextIndex = (currentIndex + 1) % availableCameras.length;
-      var nextCamera = availableCameras[nextIndex];
 
-      if (nextCamera && nextCamera.deviceId) {
-        currentCameraIndex = nextIndex;
-        startCamera(nextCamera.deviceId);
+      currentCameraIndex++;
+
+
+      if (
+        currentCameraIndex >=
+        availableCameras.length
+      ) {
+
+        currentCameraIndex = 0;
+
       }
-    });
-  }
+
+
+      var nextCamera =
+        availableCameras[
+          currentCameraIndex
+        ];
+
+
+      if (
+        nextCamera &&
+        nextCamera.deviceId
+      ) {
+
+        currentDeviceId =
+          nextCamera.deviceId;
+
+        startCamera(
+          currentDeviceId
+        );
+
+      }
+
+    }
+  );
+
+
+  // ============================================================
+  // CAMERA PREVIEW / OVERLAY
+  // ============================================================
 
   function resizeOverlayCanvas() {
-    if (!video || !overlayCanvas) return;
-    var rect = video.parentElement.getBoundingClientRect();
-    overlayCanvas.width = rect.width;
-    overlayCanvas.height = rect.height;
+
+    var rect =
+      video.parentElement
+        .getBoundingClientRect();
+
+
+    overlayCanvas.width =
+      rect.width;
+
+    overlayCanvas.height =
+      rect.height;
+
+
     renderOverlayPreview();
+
   }
+
 
   function renderOverlayPreview() {
-    if (!overlayCtx || !overlayCanvas) return;
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    if (currentTheme && typeof currentTheme.draw === 'function') {
-      currentTheme.draw(overlayCtx, overlayCanvas.width, overlayCanvas.height);
-    }
+
+    overlayCtx.clearRect(
+      0,
+      0,
+      overlayCanvas.width,
+      overlayCanvas.height
+    );
+
+
+    currentTheme.draw(
+      overlayCtx,
+      overlayCanvas.width,
+      overlayCanvas.height
+    );
+
   }
 
-  if (captureBtn) {
-    captureBtn.addEventListener('click', function () {
+
+  window.addEventListener(
+    'resize',
+    resizeOverlayCanvas
+  );
+
+
+  // ============================================================
+  // COUNTDOWN + CAPTURE
+  // ============================================================
+
+  captureBtn.addEventListener(
+    'click',
+    function () {
+
       if (!currentStream) {
-        if (statusMsg) statusMsg.textContent = 'Camera is not ready yet.';
+
+        statusMsg.textContent =
+          'Camera is not ready yet.';
+
         return;
+
       }
-      captureBtn.disabled = true;
-      runCountdown(3, function () {
-        takePhoto();
-        captureBtn.disabled = false;
-      });
-    });
+
+
+      captureBtn.disabled =
+        true;
+
+
+      runCountdown(
+        3,
+        function () {
+
+          takePhoto();
+
+          captureBtn.disabled =
+            false;
+
+        }
+      );
+
+    }
+  );
+
+
+  function runCountdown(
+    n,
+    onDone
+  ) {
+
+    countdownEl.classList
+      .remove('hidden');
+
+
+    countdownEl.textContent =
+      n;
+
+
+    var timer =
+      setInterval(
+        function () {
+
+          n -= 1;
+
+
+          if (n <= 0) {
+
+            clearInterval(timer);
+
+            countdownEl.classList
+              .add('hidden');
+
+
+            onDone();
+
+          }
+
+          else {
+
+            countdownEl.textContent =
+              n;
+
+          }
+
+        },
+        800
+      );
+
   }
 
-  function runCountdown(n, onDone) {
-    if (!countdownEl) return onDone();
-    countdownEl.classList.remove('hidden');
-    countdownEl.textContent = n;
 
-    var timer = setInterval(function () {
-      n -= 1;
-      if (n <= 0) {
-        clearInterval(timer);
-        countdownEl.classList.add('hidden');
-        onDone();
-      } else {
-        countdownEl.textContent = n;
-      }
-    }, 800);
-  }
+  // ============================================================
+  // TAKE PHOTO
+  // ============================================================
 
   function takePhoto() {
-    if (!video || !captureCanvas) return;
-    var vw = video.videoWidth || 1280;
-    var vh = video.videoHeight || 960;
 
-    captureCanvas.width = vw;
-    captureCanvas.height = vh;
-    var ctx = captureCanvas.getContext('2d');
+    var vw =
+      video.videoWidth ||
+      1280;
 
-    ctx.drawImage(video, 0, 0, vw, vh);
-    if (currentTheme && typeof currentTheme.draw === 'function') {
-      currentTheme.draw(ctx, vw, vh);
+
+    var vh =
+      video.videoHeight ||
+      960;
+
+
+    captureCanvas.width =
+      vw;
+
+
+    captureCanvas.height =
+      vh;
+
+
+    var ctx =
+      captureCanvas
+        .getContext('2d');
+
+
+    // ========================================================
+    // MIRROR FRONT CAMERA
+    // ========================================================
+
+    if (facingMode === 'user') {
+
+      ctx.save();
+
+
+      ctx.translate(
+        vw,
+        0
+      );
+
+
+      ctx.scale(
+        -1,
+        1
+      );
+
+
+      ctx.drawImage(
+        video,
+        0,
+        0,
+        vw,
+        vh
+      );
+
+
+      ctx.restore();
+
     }
 
-    if (flashEl) {
-      flashEl.classList.remove('on');
-      void flashEl.offsetWidth;
-      flashEl.classList.add('on');
+    else {
+
+      ctx.drawImage(
+        video,
+        0,
+        0,
+        vw,
+        vh
+      );
+
     }
 
-    var dataUrl = captureCanvas.toDataURL('image/png');
-    lastDownloadUrl = dataUrl;
-    if (downloadBtn) downloadBtn.classList.remove('hidden');
 
-    savePhotoToDrive(dataUrl);
+    // ========================================================
+    // DRAW SELECTED PHOTOBOOTH FRAME
+    // ========================================================
+
+    currentTheme.draw(
+      ctx,
+      vw,
+      vh
+    );
+
+
+    // ========================================================
+    // FLASH EFFECT
+    // ========================================================
+
+    flashEl.classList
+      .remove('on');
+
+
+    void flashEl.offsetWidth;
+
+
+    flashEl.classList
+      .add('on');
+
+
+    // ========================================================
+    // CONVERT CAPTURE TO PNG
+    // ========================================================
+
+    var dataUrl =
+      captureCanvas.toDataURL(
+        'image/png'
+      );
+
+
+    // Store latest photo
+    lastDownloadUrl =
+      dataUrl;
+
+
+    // Show save/download button
+    downloadBtn.classList
+      .remove('hidden');
+
+
+    // ========================================================
+    // SAVE TO GOOGLE DRIVE
+    // ========================================================
+
+    savePhotoToDrive(
+      dataUrl
+    );
+
   }
 
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', function () {
-      if (!lastDownloadUrl) return;
-      var a = document.createElement('a');
-      a.href = lastDownloadUrl;
-      a.download = 'snapbooth_' + currentTheme.id + '_' + Date.now() + '.png';
-      document.body.appendChild(a);
+
+  // ============================================================
+  // DOWNLOAD / SAVE PHOTO
+  // MOBILE FRIENDLY
+  // ============================================================
+
+  downloadBtn.addEventListener(
+    'click',
+    function () {
+
+      /*
+       * Make sure there is actually
+       * a captured photo.
+       */
+
+      if (
+        !captureCanvas.width ||
+        !captureCanvas.height
+      ) {
+
+        /*
+         * Fallback for older behavior.
+         */
+
+        if (!lastDownloadUrl) {
+          return;
+        }
+
+      }
+
+
+      statusMsg.textContent =
+        'Preparing your photo...';
+
+
+      /*
+       * Convert the canvas into a real
+       * PNG Blob.
+       *
+       * This is more reliable on mobile
+       * than downloading a data URL.
+       */
+
+      captureCanvas.toBlob(
+        function (blob) {
+
+          if (!blob) {
+
+            statusMsg.textContent =
+              'Unable to prepare the photo.';
+
+            return;
+
+          }
+
+
+          var filename =
+            'snapbooth_' +
+            currentTheme.id +
+            '_' +
+            Date.now() +
+            '.png';
+
+
+          // ==================================================
+          // TRY MOBILE SHARE / SAVE
+          // ==================================================
+
+          if (
+            navigator.share &&
+            navigator.canShare
+          ) {
+
+            try {
+
+              var file =
+                new File(
+                  [blob],
+                  filename,
+                  {
+                    type: 'image/png'
+                  }
+                );
+
+
+              /*
+               * Check whether the browser
+               * supports sharing image files.
+               */
+
+              if (
+                navigator.canShare({
+                  files: [file]
+                })
+              ) {
+
+                navigator.share({
+
+                  files: [file],
+
+                  title:
+                    'Your Snapbooth Photo',
+
+                  text:
+                    'Your Snapbooth photo'
+
+                })
+
+                .then(
+                  function () {
+
+                    statusMsg.textContent =
+                      'Photo ready to save or share!';
+
+                  }
+                )
+
+                .catch(
+                  function (err) {
+
+                    /*
+                     * User simply closed
+                     * the share menu.
+                     */
+
+                    if (
+                      err &&
+                      err.name ===
+                      'AbortError'
+                    ) {
+
+                      statusMsg.textContent =
+                        '';
+
+                      return;
+
+                    }
+
+
+                    console.warn(
+                      'Share failed:',
+                      err
+                    );
+
+
+                    openPhotoForSaving(
+                      blob,
+                      filename
+                    );
+
+                  }
+                );
+
+
+                return;
+
+              }
+
+            }
+
+            catch (err) {
+
+              console.warn(
+                'File sharing unavailable:',
+                err
+              );
+
+            }
+
+          }
+
+
+          // ==================================================
+          // FALLBACK
+          // ==================================================
+
+          openPhotoForSaving(
+            blob,
+            filename
+          );
+
+        },
+
+        'image/png'
+      );
+
+    }
+  );
+
+
+  // ============================================================
+  // OPEN PHOTO FOR MOBILE SAVING
+  // ============================================================
+
+  function openPhotoForSaving(
+    blob,
+    filename
+  ) {
+
+    var imageUrl =
+      URL.createObjectURL(
+        blob
+      );
+
+
+    /*
+     * Try opening the photo in a
+     * separate browser tab.
+     *
+     * iPhone:
+     * Long press → Save to Photos
+     *
+     * Android:
+     * Long press → Download image
+     */
+
+    var newWindow =
+      window.open(
+        imageUrl,
+        '_blank'
+      );
+
+
+    // ========================================================
+    // POPUP BLOCKED
+    // ========================================================
+
+    if (!newWindow) {
+
+      var a =
+        document.createElement('a');
+
+
+      a.href =
+        imageUrl;
+
+
+      a.download =
+        filename;
+
+
+      a.target =
+        '_blank';
+
+
+      document.body.appendChild(
+        a
+      );
+
+
       a.click();
-      document.body.removeChild(a);
-    });
-  }
 
-  function savePhotoToDrive(dataUrl) {
-    if (statusMsg) statusMsg.textContent = 'Processing Photo...';
 
-    var iframe = document.createElement('iframe');
-    iframe.name = 'driveUploadFrame_' + Date.now();
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
+      document.body.removeChild(
+        a
+      );
 
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = APPS_SCRIPT_URL;
-    form.target = iframe.name;
-    form.style.display = 'none';
 
-    var photoInput = document.createElement('input');
-    photoInput.type = 'hidden';
-    photoInput.name = 'photo';
-    photoInput.value = dataUrl;
-    form.appendChild(photoInput);
+      statusMsg.textContent =
+        'Your photo is ready.';
 
-    var themeInput = document.createElement('input');
-    themeInput.type = 'hidden';
-    themeInput.name = 'theme';
-    themeInput.value = currentTheme.id;
-    form.appendChild(themeInput);
 
-    var filenameInput = document.createElement('input');
-    filenameInput.type = 'hidden';
-    filenameInput.name = 'filename';
-    filenameInput.value = 'snapbooth_' + currentTheme.id + '_' + Date.now() + '.png';
-    form.appendChild(filenameInput);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    setTimeout(function () {
-      if (statusMsg) statusMsg.textContent = 'Photo saved successfully!';
-      if (form.parentNode) form.parentNode.removeChild(form);
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-    }, 2500);
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    buildThemeRail();
-    startCamera();
-
-    if (video) {
-      video.addEventListener('loadedmetadata', resizeOverlayCanvas);
     }
-    window.addEventListener('resize', resizeOverlayCanvas);
-  });
+
+    else {
+
+      statusMsg.textContent =
+        'Your photo is ready. Press and hold the photo to save it.';
+
+    }
+
+
+    /*
+     * Keep the Blob URL alive for a while.
+     *
+     * This is important on mobile browsers.
+     */
+
+    setTimeout(
+      function () {
+
+        URL.revokeObjectURL(
+          imageUrl
+        );
+
+      },
+      60000
+    );
+
+  }
+
+
+  // ============================================================
+  // SAVE TO GOOGLE DRIVE
+  // ============================================================
+
+  function savePhotoToDrive(
+    dataUrl
+  ) {
+
+    statusMsg.textContent =
+      'Saving photo...';
+
+
+    google.script.run
+
+      .withSuccessHandler(
+        function (result) {
+
+          if (
+            result &&
+            result.success
+          ) {
+
+            statusMsg.textContent =
+              'Photo saved successfully!';
+
+          }
+
+          else {
+
+            statusMsg.textContent =
+              'Save failed: ' +
+              (
+                result &&
+                result.error
+                  ? result.error
+                  : 'Unknown error'
+              );
+
+          }
+
+        }
+      )
+
+      .withFailureHandler(
+        function (err) {
+
+          statusMsg.textContent =
+            'Save failed: ' +
+            (
+              err &&
+              err.message
+                ? err.message
+                : 'Server error'
+            );
+
+        }
+      )
+
+      .savePhoto(
+        dataUrl,
+        currentTheme.id
+      );
+
+  }
+
+
+  // ============================================================
+  // CLASSIC FRAME
+  // ============================================================
+
+  function drawClassicFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var border =
+      w * 0.045;
+
+
+    var bottomStrip =
+      h * 0.14;
+
+
+    ctx.save();
+
+
+    ctx.strokeStyle =
+      '#ffffff';
+
+
+    ctx.lineWidth =
+      border * 2;
+
+
+    ctx.strokeRect(
+      0,
+      0,
+      w,
+      h
+    );
+
+
+    ctx.fillStyle =
+      '#ffffff';
+
+
+    ctx.fillRect(
+      0,
+      h - bottomStrip,
+      w,
+      bottomStrip
+    );
+
+
+    ctx.strokeStyle =
+      '#1a1a1a';
+
+
+    ctx.lineWidth =
+      Math.max(
+        2,
+        w * 0.004
+      );
+
+
+    ctx.strokeRect(
+      border,
+      border,
+      w - border * 2,
+      h - bottomStrip - border
+    );
+
+
+    ctx.fillStyle =
+      '#1a1a1a';
+
+
+    ctx.font =
+      '700 ' +
+      Math.round(h * 0.055) +
+      'px Fredoka, sans-serif';
+
+
+    ctx.textAlign =
+      'center';
+
+
+    ctx.textBaseline =
+      'middle';
+
+
+    ctx.fillText(
+      'SNAPBOOTH',
+      w / 2,
+      h - bottomStrip / 2
+    );
+
+
+    drawTape(
+      ctx,
+      w * 0.08,
+      h * 0.06,
+      w * 0.09,
+      -8
+    );
+
+
+    drawTape(
+      ctx,
+      w * 0.92,
+      h * 0.06,
+      w * 0.09,
+      8
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // TAPE
+  // ============================================================
+
+  function drawTape(
+    ctx,
+    cx,
+    cy,
+    size,
+    angleDeg
+  ) {
+
+    ctx.save();
+
+
+    ctx.translate(
+      cx,
+      cy
+    );
+
+
+    ctx.rotate(
+      angleDeg *
+      Math.PI /
+      180
+    );
+
+
+    ctx.fillStyle =
+      'rgba(255, 214, 232, 0.85)';
+
+
+    ctx.fillRect(
+      -size / 2,
+      -size / 5,
+      size,
+      size / 2.5
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // NEON FRAME
+  // ============================================================
+
+  function drawNeonFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var colors = [
+      '#ff2fd0',
+      '#2ff0ff',
+      '#fff02f'
+    ];
+
+
+    var border =
+      w * 0.03;
+
+
+    ctx.save();
+
+
+    for (
+      var i = 0;
+      i < colors.length;
+      i++
+    ) {
+
+      ctx.shadowColor =
+        colors[i];
+
+
+      ctx.shadowBlur =
+        20 - i * 5;
+
+
+      ctx.strokeStyle =
+        colors[i];
+
+
+      ctx.lineWidth =
+        border -
+        i * (border / 4);
+
+
+      ctx.strokeRect(
+        border / 2 + i * 2,
+        border / 2 + i * 2,
+        w - border - i * 4,
+        h - border - i * 4
+      );
+
+    }
+
+
+    ctx.shadowBlur =
+      0;
+
+
+    drawStar(
+      ctx,
+      w * 0.09,
+      h * 0.1,
+      14,
+      '#fff02f'
+    );
+
+
+    drawStar(
+      ctx,
+      w * 0.91,
+      h * 0.1,
+      14,
+      '#2ff0ff'
+    );
+
+
+    drawStar(
+      ctx,
+      w * 0.09,
+      h * 0.9,
+      14,
+      '#ff2fd0'
+    );
+
+
+    drawStar(
+      ctx,
+      w * 0.91,
+      h * 0.9,
+      14,
+      '#fff02f'
+    );
+
+
+    ctx.fillStyle =
+      '#ffffff';
+
+
+    ctx.font =
+      '700 ' +
+      Math.round(h * 0.05) +
+      'px Fredoka, sans-serif';
+
+
+    ctx.textAlign =
+      'center';
+
+
+    ctx.shadowColor =
+      '#ff2fd0';
+
+
+    ctx.shadowBlur =
+      12;
+
+
+    ctx.fillText(
+      'PARTY MODE',
+      w / 2,
+      h * 0.08
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // STAR
+  // ============================================================
+
+  function drawStar(
+    ctx,
+    cx,
+    cy,
+    r,
+    color
+  ) {
+
+    ctx.save();
+
+
+    ctx.translate(
+      cx,
+      cy
+    );
+
+
+    ctx.fillStyle =
+      color;
+
+
+    ctx.beginPath();
+
+
+    for (
+      var i = 0;
+      i < 5;
+      i++
+    ) {
+
+      var angle =
+        (i * 4 * Math.PI) / 5 -
+        Math.PI / 2;
+
+
+      var x =
+        Math.cos(angle) * r;
+
+
+      var y =
+        Math.sin(angle) * r;
+
+
+      if (i === 0) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+      }
+
+      else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+
+      }
+
+    }
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // FLORAL FRAME
+  // ============================================================
+
+  function drawFloralFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var border =
+      w * 0.035;
+
+
+    ctx.save();
+
+
+    ctx.strokeStyle =
+      '#ffe3ee';
+
+
+    ctx.lineWidth =
+      border * 1.6;
+
+
+    ctx.strokeRect(
+      0,
+      0,
+      w,
+      h
+    );
+
+
+    ctx.strokeStyle =
+      '#d9a441';
+
+
+    ctx.lineWidth =
+      Math.max(
+        2,
+        w * 0.003
+      );
+
+
+    ctx.strokeRect(
+      border,
+      border,
+      w - border * 2,
+      h - border * 2
+    );
+
+
+    var corners = [
+
+      [
+        w * 0.08,
+        h * 0.08
+      ],
+
+      [
+        w * 0.92,
+        h * 0.08
+      ],
+
+      [
+        w * 0.08,
+        h * 0.92
+      ],
+
+      [
+        w * 0.92,
+        h * 0.92
+      ]
+
+    ];
+
+
+    corners.forEach(
+      function (c) {
+
+        drawFlower(
+          ctx,
+          c[0],
+          c[1],
+          w * 0.045
+        );
+
+      }
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // FLOWER
+  // ============================================================
+
+  function drawFlower(
+    ctx,
+    cx,
+    cy,
+    r
+  ) {
+
+    var petalColors = [
+
+      '#ff9fc0',
+      '#ffd6e8',
+      '#ffb3d1',
+      '#ffc2dc'
+
+    ];
+
+
+    ctx.save();
+
+
+    ctx.translate(
+      cx,
+      cy
+    );
+
+
+    for (
+      var i = 0;
+      i < 5;
+      i++
+    ) {
+
+      ctx.save();
+
+
+      ctx.rotate(
+        (i * 2 * Math.PI) / 5
+      );
+
+
+      ctx.fillStyle =
+        petalColors[
+          i % petalColors.length
+        ];
+
+
+      ctx.beginPath();
+
+
+      ctx.ellipse(
+        0,
+        -r * 0.6,
+        r * 0.42,
+        r * 0.62,
+        0,
+        0,
+        Math.PI * 2
+      );
+
+
+      ctx.fill();
+
+
+      ctx.restore();
+
+    }
+
+
+    ctx.fillStyle =
+      '#ffd166';
+
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+      0,
+      0,
+      r * 0.32,
+      0,
+      Math.PI * 2
+    );
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // BIRTHDAY FRAME
+  // ============================================================
+
+  function drawBirthdayFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var border =
+      w * 0.03;
+
+
+    ctx.save();
+
+
+    ctx.strokeStyle =
+      '#ffc857';
+
+
+    ctx.lineWidth =
+      border * 1.4;
+
+
+    ctx.strokeRect(
+      0,
+      0,
+      w,
+      h
+    );
+
+
+    var confettiColors = [
+
+      '#ff6b57',
+      '#06a77d',
+      '#ffc857',
+      '#2ff0ff',
+      '#ff2fd0'
+
+    ];
+
+
+    var rng =
+      mulberry32(42);
+
+
+    for (
+      var i = 0;
+      i < 40;
+      i++
+    ) {
+
+      var x =
+        rng() * w;
+
+
+      var y =
+        rng() * h;
+
+
+      if (
+        x > border * 2 &&
+        x < w - border * 2 &&
+        y > h * 0.18 &&
+        y < h - border * 2
+      ) {
+
+        continue;
+
+      }
+
+
+      ctx.fillStyle =
+        confettiColors[
+          i % confettiColors.length
+        ];
+
+
+      ctx.save();
+
+
+      ctx.translate(
+        x,
+        y
+      );
+
+
+      ctx.rotate(
+        rng() * Math.PI
+      );
+
+
+      ctx.fillRect(
+        -4,
+        -4,
+        8,
+        8
+      );
+
+
+      ctx.restore();
+
+    }
+
+
+    drawBalloon(
+      ctx,
+      w * 0.09,
+      h * 0.85,
+      w * 0.045,
+      '#ff6b57'
+    );
+
+
+    drawBalloon(
+      ctx,
+      w * 0.91,
+      h * 0.85,
+      w * 0.045,
+      '#06a77d'
+    );
+
+
+    ctx.fillStyle =
+      '#ffffff';
+
+
+    ctx.fillRect(
+      w * 0.18,
+      h * 0.03,
+      w * 0.64,
+      h * 0.12
+    );
+
+
+    ctx.strokeStyle =
+      '#1a1a1a';
+
+
+    ctx.lineWidth =
+      2;
+
+
+    ctx.strokeRect(
+      w * 0.18,
+      h * 0.03,
+      w * 0.64,
+      h * 0.12
+    );
+
+
+    ctx.fillStyle =
+      '#1a1a1a';
+
+
+    ctx.font =
+      '700 ' +
+      Math.round(h * 0.06) +
+      'px Fredoka, sans-serif';
+
+
+    ctx.textAlign =
+      'center';
+
+
+    ctx.textBaseline =
+      'middle';
+
+
+    ctx.fillText(
+      'HAPPY BIRTHDAY!',
+      w / 2,
+      h * 0.09
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // BALLOON
+  // ============================================================
+
+  function drawBalloon(
+    ctx,
+    cx,
+    cy,
+    r,
+    color
+  ) {
+
+    ctx.save();
+
+
+    ctx.fillStyle =
+      color;
+
+
+    ctx.beginPath();
+
+
+    ctx.ellipse(
+      cx,
+      cy,
+      r * 0.75,
+      r,
+      0,
+      0,
+      Math.PI * 2
+    );
+
+
+    ctx.fill();
+
+
+    ctx.strokeStyle =
+      '#1a1a1a';
+
+
+    ctx.lineWidth =
+      1.5;
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+      cx,
+      cy + r
+    );
+
+
+    ctx.quadraticCurveTo(
+      cx + r * 0.4,
+      cy + r * 1.6,
+      cx,
+      cy + r * 2.2
+    );
+
+
+    ctx.stroke();
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // HOLIDAY FRAME
+  // ============================================================
+
+  function drawHolidayFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var border =
+      w * 0.03;
+
+
+    ctx.save();
+
+
+    ctx.strokeStyle =
+      '#0f5132';
+
+
+    ctx.lineWidth =
+      border;
+
+
+    ctx.strokeRect(
+      0,
+      0,
+      w,
+      h
+    );
+
+
+    ctx.strokeStyle =
+      '#c1272d';
+
+
+    ctx.lineWidth =
+      border * 0.4;
+
+
+    ctx.strokeRect(
+      border * 0.6,
+      border * 0.6,
+      w - border * 1.2,
+      h - border * 1.2
+    );
+
+
+    var bulbColors = [
+
+      '#ff6b57',
+      '#ffc857',
+      '#2ff0ff',
+      '#ff2fd0',
+      '#06a77d'
+
+    ];
+
+
+    var y =
+      h * 0.08;
+
+
+    ctx.strokeStyle =
+      '#1a1a1a';
+
+
+    ctx.lineWidth =
+      2;
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+      border,
+      y
+    );
+
+
+    for (
+      var x = border;
+      x <= w - border;
+      x += w / 14
+    ) {
+
+      ctx.quadraticCurveTo(
+        x + w / 28,
+        y + 10,
+        x + w / 14,
+        y
+      );
+
+    }
+
+
+    ctx.stroke();
+
+
+    var idx = 0;
+
+
+    for (
+      var bx = border + w / 28;
+      bx <= w - border;
+      bx += w / 14
+    ) {
+
+      ctx.save();
+
+
+      ctx.shadowColor =
+        bulbColors[
+          idx % bulbColors.length
+        ];
+
+
+      ctx.shadowBlur =
+        10;
+
+
+      ctx.fillStyle =
+        bulbColors[
+          idx % bulbColors.length
+        ];
+
+
+      ctx.beginPath();
+
+
+      ctx.arc(
+        bx,
+        y + 8,
+        6,
+        0,
+        Math.PI * 2
+      );
+
+
+      ctx.fill();
+
+
+      ctx.restore();
+
+
+      idx++;
+
+    }
+
+
+    drawSnowflake(
+      ctx,
+      w * 0.08,
+      h * 0.85,
+      w * 0.035
+    );
+
+
+    drawSnowflake(
+      ctx,
+      w * 0.92,
+      h * 0.85,
+      w * 0.035
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // SNOWFLAKE
+  // ============================================================
+
+  function drawSnowflake(
+    ctx,
+    cx,
+    cy,
+    r
+  ) {
+
+    ctx.save();
+
+
+    ctx.translate(
+      cx,
+      cy
+    );
+
+
+    ctx.strokeStyle =
+      '#ffffff';
+
+
+    ctx.lineWidth =
+      2;
+
+
+    for (
+      var i = 0;
+      i < 6;
+      i++
+    ) {
+
+      ctx.save();
+
+
+      ctx.rotate(
+        (i * Math.PI) / 3
+      );
+
+
+      ctx.beginPath();
+
+
+      ctx.moveTo(
+        0,
+        -r
+      );
+
+
+      ctx.lineTo(
+        0,
+        r
+      );
+
+
+      ctx.moveTo(
+        0,
+        -r * 0.5
+      );
+
+
+      ctx.lineTo(
+        -r * 0.25,
+        -r * 0.75
+      );
+
+
+      ctx.moveTo(
+        0,
+        -r * 0.5
+      );
+
+
+      ctx.lineTo(
+        r * 0.25,
+        -r * 0.75
+      );
+
+
+      ctx.stroke();
+
+
+      ctx.restore();
+
+    }
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // FILMSTRIP FRAME
+  // ============================================================
+
+  function drawFilmstripFrame(
+    ctx,
+    w,
+    h
+  ) {
+
+    var barWidth =
+      w * 0.09;
+
+
+    var holeSize =
+      barWidth * 0.36;
+
+
+    ctx.save();
+
+
+    ctx.fillStyle =
+      '#1a1a1a';
+
+
+    ctx.fillRect(
+      0,
+      0,
+      barWidth,
+      h
+    );
+
+
+    ctx.fillRect(
+      w - barWidth,
+      0,
+      barWidth,
+      h
+    );
+
+
+    ctx.fillStyle =
+      '#ffffff';
+
+
+    var holeCount =
+      Math.round(
+        h /
+        (holeSize * 2.2)
+      );
+
+
+    for (
+      var i = 0;
+      i < holeCount;
+      i++
+    ) {
+
+      var hy =
+        (i + 0.5) *
+        (h / holeCount);
+
+
+      roundRect(
+        ctx,
+        barWidth / 2 - holeSize / 2,
+        hy - holeSize / 2,
+        holeSize,
+        holeSize,
+        3
+      );
+
+
+      ctx.fill();
+
+
+      roundRect(
+        ctx,
+        w - barWidth / 2 - holeSize / 2,
+        hy - holeSize / 2,
+        holeSize,
+        holeSize,
+        3
+      );
+
+
+      ctx.fill();
+
+    }
+
+
+    ctx.fillStyle =
+      '#1a1a1a';
+
+
+    ctx.fillRect(
+      0,
+      0,
+      w,
+      h * 0.05
+    );
+
+
+    ctx.fillRect(
+      0,
+      h * 0.95,
+      w,
+      h * 0.05
+    );
+
+
+    ctx.restore();
+
+  }
+
+
+  // ============================================================
+  // ROUND RECTANGLE
+  // ============================================================
+
+  function roundRect(
+    ctx,
+    x,
+    y,
+    w,
+    h,
+    r
+  ) {
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+      x + r,
+      y
+    );
+
+
+    ctx.arcTo(
+      x + w,
+      y,
+      x + w,
+      y + h,
+      r
+    );
+
+
+    ctx.arcTo(
+      x + w,
+      y + h,
+      x,
+      y + h,
+      r
+    );
+
+
+    ctx.arcTo(
+      x,
+      y + h,
+      x,
+      y,
+      r
+    );
+
+
+    ctx.arcTo(
+      x,
+      y,
+      x + w,
+      y,
+      r
+    );
+
+
+    ctx.closePath();
+
+  }
+
+
+  // ============================================================
+  // DETERMINISTIC RANDOM GENERATOR
+  // ============================================================
+
+  function mulberry32(
+    seed
+  ) {
+
+    return function () {
+
+      seed |= 0;
+
+
+      seed =
+        (
+          seed +
+          0x6D2B79F5
+        ) | 0;
+
+
+      var t =
+        Math.imul(
+          seed ^ (seed >>> 15),
+          1 | seed
+        );
+
+
+      t =
+        (
+          t +
+          Math.imul(
+            t ^ (t >>> 7),
+            61 | t
+          )
+        ) ^ t;
+
+
+      return (
+        (
+          t ^
+          (t >>> 14)
+        ) >>> 0
+      ) / 4294967296;
+
+    };
+
+  }
+
+
+  // ============================================================
+  // INITIALIZATION
+  // ============================================================
+
+  buildThemeRail();
+
+
+  // Start with any available camera.
+  startCamera(null);
+
+
+  video.addEventListener(
+    'loadedmetadata',
+    resizeOverlayCanvas
+  );
+
+
+  window.addEventListener(
+    'load',
+    resizeOverlayCanvas
+  );
+
+
 })();
+</script>
