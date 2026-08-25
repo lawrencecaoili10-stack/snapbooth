@@ -23,6 +23,8 @@
   var captureBtn = document.getElementById('captureBtn');
   var downloadBtn = document.getElementById('downloadBtn');
   var themeListEl = document.getElementById('themeList');
+  var layoutListEl = document.getElementById('layoutList');
+  var sessionGalleryStrip = document.getElementById('sessionGalleryStrip');
 
 
   // ============================================================
@@ -47,6 +49,7 @@
       swatch: '#ffffff',
       // warm, slightly faded instant-film look
       filter: 'sepia(12%) saturate(115%) contrast(104%) brightness(102%)',
+      grade: { sepia: 0.12, saturate: 1.15, contrast: 1.04, brightness: 1.02, grayscale: 0 },
       draw: drawClassicFrame
     },
     {
@@ -55,6 +58,7 @@
       swatch: '#ff2fd0',
       // punchy, oversaturated club-light look
       filter: 'saturate(165%) contrast(115%) brightness(103%) hue-rotate(-4deg)',
+      grade: { sepia: 0, saturate: 1.65, contrast: 1.15, brightness: 1.03, grayscale: 0 },
       draw: drawNeonFrame
     },
     {
@@ -63,6 +67,7 @@
       swatch: '#ffd6e8',
       // soft pastel, lifted shadows, gentle warmth
       filter: 'sepia(8%) saturate(112%) brightness(108%) contrast(96%)',
+      grade: { sepia: 0.08, saturate: 1.12, contrast: 0.96, brightness: 1.08, grayscale: 0 },
       draw: drawFloralFrame
     },
     {
@@ -71,6 +76,7 @@
       swatch: '#ffc857',
       // bright, vivid, high-energy party colors
       filter: 'saturate(148%) contrast(110%) brightness(106%)',
+      grade: { sepia: 0, saturate: 1.48, contrast: 1.10, brightness: 1.06, grayscale: 0 },
       draw: drawBirthdayFrame
     },
     {
@@ -79,6 +85,7 @@
       swatch: '#0f5132',
       // cozy warm glow, slightly muted highlights
       filter: 'sepia(18%) saturate(120%) brightness(101%) contrast(103%)',
+      grade: { sepia: 0.18, saturate: 1.20, contrast: 1.03, brightness: 1.01, grayscale: 0 },
       draw: drawHolidayFrame
     },
     {
@@ -87,6 +94,7 @@
       swatch: '#1a1a1a',
       // classic high-contrast black & white
       filter: 'grayscale(100%) contrast(120%) brightness(103%)',
+      grade: { sepia: 0, saturate: 1, contrast: 1.20, brightness: 1.03, grayscale: 1 },
       draw: drawFilmstripFrame
     }
   ];
@@ -148,6 +156,94 @@
       );
 
       themeListEl.appendChild(card);
+
+    });
+
+  }
+
+
+  // ============================================================
+  // LAYOUTS
+  // ============================================================
+  // Each layout defines how many shots to take in a row and how
+  // to compose those shots into one final image.
+
+  var LAYOUTS = [
+    {
+      id: 'classic',
+      name: 'Classic',
+      shots: 1,
+      compose: composeClassic
+    },
+    {
+      id: 'photostrip',
+      name: 'Photostrip',
+      shots: 3,
+      compose: composePhotostrip
+    },
+    {
+      id: 'grid',
+      name: 'Grid',
+      shots: 4,
+      compose: composeGrid
+    }
+  ];
+
+  var currentLayout = LAYOUTS[0];
+
+
+  // ============================================================
+  // LAYOUT RAIL
+  // ============================================================
+
+  function buildLayoutRail() {
+
+    layoutListEl.innerHTML = '';
+
+    LAYOUTS.forEach(function (layout) {
+
+      var card =
+        document.createElement('button');
+
+      card.className =
+        'layout-card' +
+        (layout.id === currentLayout.id
+          ? ' active'
+          : '');
+
+      card.setAttribute(
+        'data-layout',
+        layout.id
+      );
+
+      card.innerHTML =
+        '<span>' +
+        layout.name +
+        '</span>' +
+        '<span class="layout-card__badge">' +
+        layout.shots +
+        (layout.shots === 1 ? ' shot' : ' shots') +
+        '</span>';
+
+      card.addEventListener(
+        'click',
+        function () {
+
+          currentLayout = layout;
+
+          Array.prototype.forEach.call(
+            layoutListEl.children,
+            function (c) {
+              c.classList.remove('active');
+            }
+          );
+
+          card.classList.add('active');
+
+        }
+      );
+
+      layoutListEl.appendChild(card);
 
     });
 
@@ -363,11 +459,11 @@
         true;
 
 
-      runCountdown(
-        3,
-        function () {
+      runPhotoSession(
+        currentLayout.shots,
+        function (shots) {
 
-          takePhoto();
+          finalizeCapture(shots);
 
           captureBtn.disabled =
             false;
@@ -426,43 +522,152 @@
 
 
   // ============================================================
-  // TAKE PHOTO
+  // MULTI-SHOT SESSION
   // ============================================================
+  // Layouts with more than one shot (Photostrip, Grid) run the
+  // countdown repeatedly, collecting one raw graded frame per
+  // shot, before handing everything to the layout's compose
+  // function to build the final image.
 
-  function takePhoto() {
+  function runPhotoSession(shotCount, onAllDone) {
+
+    var shots = [];
+
+    function nextShot() {
+
+      runCountdown(3, function () {
+
+        shots.push(captureRawShot());
+
+        if (shots.length < shotCount) {
+
+          statusMsg.textContent =
+            'Shot ' + shots.length + ' of ' + shotCount +
+            ' captured — get ready for the next one!';
+
+          setTimeout(nextShot, 900);
+
+        } else {
+
+          onAllDone(shots);
+
+        }
+
+      });
+
+    }
+
+    nextShot();
+
+  }
+
+
+  // ============================================================
+  // MANUAL COLOR GRADE (pixel-level, not ctx.filter)
+  // ============================================================
+  // ctx.filter (the canvas equivalent of CSS filter) is not
+  // reliably supported across Safari/iOS versions — on some
+  // devices it silently does nothing, which is why the live
+  // preview (CSS filter on the <video> element) looked right
+  // but the downloaded PNG came out with no color grade at all.
+  // This applies the same look by editing pixel values directly,
+  // so it always bakes into the exported image.
+
+  function clamp255(v) {
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return v;
+  }
+
+  function applyColorGrade(ctx, w, h, grade) {
+
+    if (!grade) return;
+
+    var imageData = ctx.getImageData(0, 0, w, h);
+    var data = imageData.data;
+
+    var brightness = grade.brightness != null ? grade.brightness : 1;
+    var contrast = grade.contrast != null ? grade.contrast : 1;
+    var saturate = grade.saturate != null ? grade.saturate : 1;
+    var sepiaAmt = grade.sepia || 0;
+    var grayAmt = grade.grayscale || 0;
+
+    for (var i = 0; i < data.length; i += 4) {
+
+      var r = data[i];
+      var g = data[i + 1];
+      var b = data[i + 2];
+
+      // brightness
+      r *= brightness;
+      g *= brightness;
+      b *= brightness;
+
+      // contrast (centered on mid-gray)
+      r = (r - 128) * contrast + 128;
+      g = (g - 128) * contrast + 128;
+      b = (b - 128) * contrast + 128;
+
+      // saturation (blend toward/away from luminance)
+      var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = lum + (r - lum) * saturate;
+      g = lum + (g - lum) * saturate;
+      b = lum + (b - lum) * saturate;
+
+      // sepia (blend toward a sepia-mapped color by amount)
+      if (sepiaAmt > 0) {
+        var sr = r * 0.393 + g * 0.769 + b * 0.189;
+        var sg = r * 0.349 + g * 0.686 + b * 0.168;
+        var sb = r * 0.272 + g * 0.534 + b * 0.131;
+        r = r + (sr - r) * sepiaAmt;
+        g = g + (sg - g) * sepiaAmt;
+        b = b + (sb - b) * sepiaAmt;
+      }
+
+      // grayscale (blend toward luminance by amount)
+      if (grayAmt > 0) {
+        var l2 = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = r + (l2 - r) * grayAmt;
+        g = g + (l2 - g) * grayAmt;
+        b = b + (l2 - b) * grayAmt;
+      }
+
+      data[i] = clamp255(r);
+      data[i + 1] = clamp255(g);
+      data[i + 2] = clamp255(b);
+
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+  }
+
+
+  // ============================================================
+  // CAPTURE ONE RAW (MIRRORED + GRADED) SHOT
+  // ============================================================
+  // Returns a standalone canvas — no frame/border drawn yet.
+  // Multi-shot layouts call this once per shot, then compose
+  // them together; the Classic layout uses it for its one shot.
+
+  function captureRawShot() {
 
     var vw =
       video.videoWidth ||
       1280;
 
-
     var vh =
       video.videoHeight ||
       960;
 
+    var shotCanvas =
+      document.createElement('canvas');
 
-    captureCanvas.width =
-      vw;
-
-
-    captureCanvas.height =
-      vh;
-
+    shotCanvas.width = vw;
+    shotCanvas.height = vh;
 
     var ctx =
-      captureCanvas
-        .getContext('2d');
-
-
-    // ========================================================
-    // APPLY THEME COLOR FILTER
-    // ========================================================
-    // Canvas 2D context supports the same CSS filter syntax,
-    // so the baked-in photo matches the live preview exactly.
-
-    ctx.filter =
-      (currentTheme && currentTheme.filter) ||
-      'none';
+      shotCanvas.getContext('2d');
 
 
     // ========================================================
@@ -472,106 +677,302 @@
     if (facingMode === 'user') {
 
       ctx.save();
-
-
-      ctx.translate(
-        vw,
-        0
-      );
-
-
-      ctx.scale(
-        -1,
-        1
-      );
-
-
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        vw,
-        vh
-      );
-
-
+      ctx.translate(vw, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, vw, vh);
       ctx.restore();
 
-    }
+    } else {
 
-    else {
-
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        vw,
-        vh
-      );
+      ctx.drawImage(video, 0, 0, vw, vh);
 
     }
 
 
-    // Reset the filter before drawing the frame overlay —
-    // the decorative border/stickers should stay crisp and
-    // unaffected by the photo's color grade.
-
-    ctx.filter = 'none';
-
-
     // ========================================================
-    // DRAW SELECTED PHOTOBOOTH FRAME
+    // BAKE IN THEME COLOR GRADE (pixel-level, always applies)
     // ========================================================
 
-    currentTheme.draw(
+    applyColorGrade(
       ctx,
       vw,
-      vh
+      vh,
+      currentTheme && currentTheme.grade
     );
 
 
     // ========================================================
-    // FLASH EFFECT
+    // FLASH EFFECT (once per shot)
     // ========================================================
 
-    flashEl.classList
-      .remove('on');
-
-
+    flashEl.classList.remove('on');
     void flashEl.offsetWidth;
+    flashEl.classList.add('on');
+
+    return shotCanvas;
+
+  }
 
 
-    flashEl.classList
-      .add('on');
+  // ============================================================
+  // COLOR HELPER — pick readable text color for a swatch
+  // ============================================================
+
+  function isLightColor(hex) {
+
+    if (!hex) return true;
+
+    var c = hex.replace('#', '');
+
+    if (c.length === 3) {
+      c = c.split('').map(function (ch) { return ch + ch; }).join('');
+    }
+
+    var r = parseInt(c.substring(0, 2), 16);
+    var g = parseInt(c.substring(2, 4), 16);
+    var b = parseInt(c.substring(4, 6), 16);
+
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return true;
+
+    var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+    return lum > 0.6;
+
+  }
 
 
-    // ========================================================
-    // CONVERT CAPTURE TO PNG
-    // ========================================================
+  // ============================================================
+  // COMPOSE: CLASSIC (1 shot, full decorative frame)
+  // ============================================================
+
+  function composeClassic(shots, theme, outCanvas) {
+
+    var shot = shots[0];
+
+    outCanvas.width = shot.width;
+    outCanvas.height = shot.height;
+
+    var ctx = outCanvas.getContext('2d');
+
+    ctx.drawImage(shot, 0, 0);
+
+    theme.draw(ctx, outCanvas.width, outCanvas.height);
+
+  }
+
+
+  // ============================================================
+  // COMPOSE: PHOTOSTRIP (shots stacked vertically)
+  // ============================================================
+
+  function composePhotostrip(shots, theme, outCanvas) {
+
+    var cellW = shots[0].width;
+    var cellH = shots[0].height;
+
+    var pad = Math.round(cellW * 0.04);
+    var outerBorder = Math.round(cellW * 0.05);
+    var footerH = Math.round(cellH * 0.22);
+
+    var totalW = cellW + outerBorder * 2;
+    var totalH =
+      outerBorder +
+      (cellH + pad) * shots.length +
+      footerH;
+
+    outCanvas.width = totalW;
+    outCanvas.height = totalH;
+
+    var ctx = outCanvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    var y = outerBorder;
+
+    for (var i = 0; i < shots.length; i++) {
+
+      ctx.drawImage(shots[i], outerBorder, y, cellW, cellH);
+
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = Math.max(2, cellW * 0.006);
+      ctx.strokeRect(outerBorder, y, cellW, cellH);
+
+      y += cellH + pad;
+
+    }
+
+    // footer band in the theme's accent color
+    ctx.fillStyle = theme.swatch || '#1a1a1a';
+    ctx.fillRect(0, totalH - footerH, totalW, footerH);
+
+    ctx.fillStyle = isLightColor(theme.swatch) ? '#1a1a1a' : '#ffffff';
+    ctx.font = '700 ' + Math.round(footerH * 0.42) + 'px Fredoka, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SNAPBOOTH', totalW / 2, totalH - footerH / 2);
+
+    // outer frame
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = Math.max(3, cellW * 0.012);
+    ctx.strokeRect(
+      ctx.lineWidth / 2,
+      ctx.lineWidth / 2,
+      totalW - ctx.lineWidth,
+      totalH - ctx.lineWidth
+    );
+
+  }
+
+
+  // ============================================================
+  // COMPOSE: GRID (2x2 shots)
+  // ============================================================
+
+  function composeGrid(shots, theme, outCanvas) {
+
+    var cellW = shots[0].width;
+    var cellH = shots[0].height;
+
+    var pad = Math.round(cellW * 0.04);
+    var outerBorder = Math.round(cellW * 0.05);
+    var footerH = Math.round(cellH * 0.16);
+
+    var totalW = outerBorder * 2 + cellW * 2 + pad;
+    var totalH =
+      outerBorder +
+      cellH * 2 + pad +
+      footerH;
+
+    outCanvas.width = totalW;
+    outCanvas.height = totalH;
+
+    var ctx = outCanvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    var positions = [
+      [outerBorder, outerBorder],
+      [outerBorder + cellW + pad, outerBorder],
+      [outerBorder, outerBorder + cellH + pad],
+      [outerBorder + cellW + pad, outerBorder + cellH + pad]
+    ];
+
+    for (var i = 0; i < shots.length && i < 4; i++) {
+
+      var pos = positions[i];
+
+      ctx.drawImage(shots[i], pos[0], pos[1], cellW, cellH);
+
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = Math.max(2, cellW * 0.006);
+      ctx.strokeRect(pos[0], pos[1], cellW, cellH);
+
+    }
+
+    ctx.fillStyle = theme.swatch || '#1a1a1a';
+    ctx.fillRect(0, totalH - footerH, totalW, footerH);
+
+    ctx.fillStyle = isLightColor(theme.swatch) ? '#1a1a1a' : '#ffffff';
+    ctx.font = '700 ' + Math.round(footerH * 0.5) + 'px Fredoka, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SNAPBOOTH', totalW / 2, totalH - footerH / 2);
+
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = Math.max(3, cellW * 0.012);
+    ctx.strokeRect(
+      ctx.lineWidth / 2,
+      ctx.lineWidth / 2,
+      totalW - ctx.lineWidth,
+      totalH - ctx.lineWidth
+    );
+
+  }
+
+
+  // ============================================================
+  // FINALIZE CAPTURE — compose, save, download, session gallery
+  // ============================================================
+
+  function finalizeCapture(shots) {
+
+    currentLayout.compose(
+      shots,
+      currentTheme,
+      captureCanvas
+    );
 
     var dataUrl =
-      captureCanvas.toDataURL(
-        'image/png'
-      );
-
+      captureCanvas.toDataURL('image/png');
 
     // Store latest photo
-    lastDownloadUrl =
-      dataUrl;
-
+    lastDownloadUrl = dataUrl;
 
     // Show save/download button
-    downloadBtn.classList
-      .remove('hidden');
+    downloadBtn.classList.remove('hidden');
 
+    addToSessionGallery(dataUrl);
 
     // ========================================================
     // SAVE TO GOOGLE DRIVE
     // ========================================================
 
-    savePhotoToDrive(
-      dataUrl
-    );
+    savePhotoToDrive(dataUrl);
+
+  }
+
+
+  // ============================================================
+  // SESSION GALLERY (this browser tab only — nothing persisted)
+  // ============================================================
+
+  var sessionShots = [];
+
+  function addToSessionGallery(dataUrl) {
+
+    sessionShots.unshift(dataUrl);
+
+    renderSessionGallery();
+
+  }
+
+  function renderSessionGallery() {
+
+    if (!sessionGalleryStrip) return;
+
+    if (sessionShots.length === 0) {
+
+      sessionGalleryStrip.innerHTML =
+        '<p class="session-gallery__empty">Photos you take this session will show up here — tap one to open or save it again.</p>';
+
+      return;
+
+    }
+
+    sessionGalleryStrip.innerHTML = '';
+
+    sessionShots.forEach(function (url, idx) {
+
+      var link = document.createElement('a');
+
+      link.className = 'session-gallery__item';
+      link.href = url;
+      link.download =
+        'snapbooth_' + (sessionShots.length - idx) + '_' + Date.now() + '.png';
+      link.target = '_blank';
+      link.rel = 'noopener';
+
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Photo ' + (sessionShots.length - idx);
+      img.loading = 'lazy';
+
+      link.appendChild(img);
+      sessionGalleryStrip.appendChild(link);
+
+    });
 
   }
 
@@ -2311,6 +2712,8 @@
   // ============================================================
 
   buildThemeRail();
+
+  buildLayoutRail();
 
   applyLiveFilter(currentTheme);
 
