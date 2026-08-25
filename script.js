@@ -7,7 +7,7 @@
   // Paste the /exec URL of your deployed Apps Script Web App here.
   // Deploy > Manage deployments > Web app > copy the URL ending in /exec
 
-  var APPS_SCRIPT_URL = 'PASTE_YOUR_WEB_APP_EXEC_URL_HERE';
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrY8PAtR23fd_Sj--KUpcGmRbzUxLfwZUB1S0cMGN6ixhwOf-b8ng_qCBaZU6f8_E8hg/exec';
 
   // ============================================================
   // DOM REFERENCES
