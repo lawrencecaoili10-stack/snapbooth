@@ -7,7 +7,7 @@
   // Paste the /exec URL of your deployed Apps Script Web App here.
   // Deploy > Manage deployments > Web app > copy the URL ending in /exec
 
-  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrY8PAtR23fd_Sj--KUpcGmRbzUxLfwZUB1S0cMGN6ixhwOf-b8ng_qCBaZU6f8_E8hg/exec';
+  var APPS_SCRIPT_URL = 'PASTE_YOUR_WEB_APP_EXEC_URL_HERE';
 
   // ============================================================
   // DOM REFERENCES
@@ -22,7 +22,6 @@
   var statusMsg = document.getElementById('statusMsg');
   var captureBtn = document.getElementById('captureBtn');
   var downloadBtn = document.getElementById('downloadBtn');
-  var switchCamBtn = document.getElementById('switchCamBtn');
   var themeListEl = document.getElementById('themeList');
 
 
@@ -31,9 +30,6 @@
   // ============================================================
 
   var currentStream = null;
-  var currentDeviceId = null;
-  var availableCameras = [];
-  var currentCameraIndex = 0;
   var facingMode = 'user';
 
   // Stores the latest captured image as a data URL.
@@ -194,51 +190,7 @@
   }
 
 
-  function getAvailableCameras() {
-
-    if (
-      !navigator.mediaDevices ||
-      !navigator.mediaDevices.enumerateDevices
-    ) {
-
-      return Promise.resolve([]);
-
-    }
-
-    return navigator.mediaDevices
-      .enumerateDevices()
-
-      .then(function (devices) {
-
-        availableCameras =
-          devices.filter(function (device) {
-
-            return (
-              device.kind ===
-              'videoinput'
-            );
-
-          });
-
-        return availableCameras;
-
-      })
-
-      .catch(function (err) {
-
-        console.warn(
-          'Unable to enumerate cameras:',
-          err
-        );
-
-        return [];
-
-      });
-
-  }
-
-
-  function startCamera(deviceId) {
+  function startCamera() {
 
     stopCamera();
 
@@ -246,159 +198,46 @@
       'Requesting camera access...';
 
 
-    var constraints;
+    var constraints = {
 
+      video: {
+        facingMode: {
+          ideal: facingMode
+        }
+      },
 
-    // ========================================================
-    // SPECIFIC CAMERA
-    // ========================================================
+      audio: false
 
-    if (deviceId) {
-
-      constraints = {
-
-        video: {
-
-          deviceId: {
-            exact: deviceId
-          }
-
-        },
-
-        audio: false
-
-      };
-
-    }
-
-
-    // ========================================================
-    // INITIAL CAMERA
-    // ========================================================
-
-    else {
-
-      constraints = {
-
-        video: {
-          facingMode: {
-            ideal: facingMode
-          }
-        },
-
-        audio: false
-
-      };
-
-    }
+    };
 
 
     navigator.mediaDevices
       .getUserMedia(constraints)
 
-      .then(function (stream) {
-
-        currentStream =
-          stream;
-
-        video.srcObject =
-          stream;
-
-
-        var tracks =
-          stream.getVideoTracks();
-
-
-        if (tracks.length > 0) {
-
-          var settings =
-            tracks[0].getSettings();
-
-
-          if (settings.deviceId) {
-
-            currentDeviceId =
-              settings.deviceId;
-
-          }
-
-        }
-
-
-        statusMsg.textContent =
-          '';
-
-
-        return getAvailableCameras();
-
-      })
-
       .catch(function (err) {
 
         console.warn(
-          'Preferred camera request failed:',
+          'Preferred camera request failed, falling back:',
           err
         );
 
+        // Fall back to any available camera. This always
+        // resolves to a real MediaStream (or rejects), so the
+        // .then() below never has to guess what it received.
 
-        // ====================================================
-        // FALLBACK CAMERA
-        // ====================================================
-
-        return navigator.mediaDevices
-          .getUserMedia({
-
-            video: true,
-            audio: false
-
-          });
+        return navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
 
       })
 
       .then(function (stream) {
 
-        /*
-         * If the first request succeeded,
-         * this will be undefined.
-         */
+        currentStream = stream;
+        video.srcObject = stream;
 
-        if (!stream) {
-          return;
-        }
-
-
-        currentStream =
-          stream;
-
-        video.srcObject =
-          stream;
-
-
-        var tracks =
-          stream.getVideoTracks();
-
-
-        if (tracks.length > 0) {
-
-          var settings =
-            tracks[0].getSettings();
-
-
-          if (settings.deviceId) {
-
-            currentDeviceId =
-              settings.deviceId;
-
-          }
-
-        }
-
-
-        statusMsg.textContent =
-          '';
-
-
-        return getAvailableCameras();
+        statusMsg.textContent = '';
 
       })
 
@@ -415,40 +254,28 @@
           'Unable to access camera';
 
 
-        if (
-          err.name ===
-          'NotAllowedError'
-        ) {
+        if (err.name === 'NotAllowedError') {
 
           message =
             'Permission denied. Please allow camera access in your browser settings and reload the page.';
 
         }
 
-        else if (
-          err.name ===
-          'NotFoundError'
-        ) {
+        else if (err.name === 'NotFoundError') {
 
           message =
             'No camera was found. Please make sure your webcam or phone camera is available.';
 
         }
 
-        else if (
-          err.name ===
-          'NotReadableError'
-        ) {
+        else if (err.name === 'NotReadableError') {
 
           message =
             'The camera is already being used by another application.';
 
         }
 
-        else if (
-          err.name ===
-          'SecurityError'
-        ) {
+        else if (err.name === 'SecurityError') {
 
           message =
             'Camera access is blocked by the browser security policy.';
@@ -464,62 +291,6 @@
 
   }
 
-
-  // ============================================================
-  // SWITCH CAMERA
-  // ============================================================
-
-  switchCamBtn.addEventListener(
-    'click',
-    function () {
-
-      if (
-        !availableCameras ||
-        availableCameras.length <= 1
-      ) {
-
-        statusMsg.textContent =
-          'No other camera detected.';
-
-        return;
-      }
-
-
-      currentCameraIndex++;
-
-
-      if (
-        currentCameraIndex >=
-        availableCameras.length
-      ) {
-
-        currentCameraIndex = 0;
-
-      }
-
-
-      var nextCamera =
-        availableCameras[
-          currentCameraIndex
-        ];
-
-
-      if (
-        nextCamera &&
-        nextCamera.deviceId
-      ) {
-
-        currentDeviceId =
-          nextCamera.deviceId;
-
-        startCamera(
-          currentDeviceId
-        );
-
-      }
-
-    }
-  );
 
 
   // ============================================================
@@ -1110,7 +881,7 @@
 
     if (
       !APPS_SCRIPT_URL ||
-      APPS_SCRIPT_URL.indexOf('PASTE_YOUR') === 0
+      APPS_SCRIPT_URL.indexOf('https://script.google.com/macros/library/d/131RA5UUg9EFrs3ktC5F5YVP1ysbg8eZdvlpUsjMZVI6HChzBV3wQ13JA/4') === 0
     ) {
 
       statusMsg.textContent =
@@ -2545,7 +2316,7 @@
 
 
   // Start with any available camera.
-  startCamera(null);
+  startCamera();
 
 
   video.addEventListener(
